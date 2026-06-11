@@ -1,0 +1,26 @@
+code,name,description,system
+NAM-AYU-001,Amavata,Rheumatoid arthritis-like condition with joint pain and stiffness,Ayurveda
+NAM-AYU-002,Jwara,Fever with elevated body temperature,Ayurveda
+NAM-AYU-003,Kasa,Cough with respiratory irritation,Ayurveda
+NAM-AYU-004,Prameha,Diabetes-like condition with excessive urination,Ayurveda
+NAM-AYU-005,Shwasa,Asthma-like breathing difficulty,Ayurveda
+NAM-AYU-006,Aruchi,Loss of appetite and digestive weakness,Ayurveda
+NAM-AYU-007,Gridhrasi,Sciatica-like nerve pain in lower limbs,Ayurveda
+NAM-AYU-008,Pitta Jwara,Fever caused by pitta dosha imbalance,Ayurveda
+NAM-AYU-009,Shiro Roga,Headache and cranial disorders,Ayurveda
+NAM-AYU-010,Udara Roga,Abdominal disorders and digestive issues,Ayurveda
+NAM-UNA-001,Humma,Fever with heat and inflammation,Unani
+NAM-UNA-002,Sual,Cough with phlegm production,Unani
+NAM-UNA-003,Ziabetus,Diabetes with excessive thirst and urination,Unani
+NAM-UNA-004,Waja-ul-Mafasil,Joint pain and arthritis,Unani
+NAM-UNA-005,Qabz,Constipation and bowel irregularity,Unani
+NAM-SID-001,Suram,Fever with body heat elevation,Siddha
+NAM-SID-002,Irumal,Cough with respiratory congestion,Siddha
+NAM-SID-003,Neerzhivu,Diabetes with frequent urination,Siddha
+NAM-SID-004,Vatham,Joint and muscle pain disorders,Siddha
+NAM-SID-005,Gunmam,Abdominal bloating and gas,Siddha
+NAM-HOM-001,Pyrexia,Fever with constitutional symptoms,Homeopathy
+NAM-HOM-002,Tussis,Persistent cough with irritation,Homeopathy
+NAM-HOM-003,Diabetes Mellitus,Blood sugar regulation disorder,Homeopathy
+NAM-HOM-004,Arthritis,Joint inflammation and pain,Homeopathy
+NAM-YOG-001,Pranayama Vikara,Breathing pattern disorders,Yoga

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - NAMASTE + ICD EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/enhanced_auth.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h4>⚕️ NAMASTE + ICD EMR</h4>
+                <small>Administrator Panel</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-link active">📊 Dashboard</a>
+                <a href="#" class="nav-link">👥 User Management</a>
+                <a href="#" class="nav-link">🏥 System Settings</a>
+                <a href="#" class="nav-link">📈 Analytics</a>
+                <a href="#" class="nav-link">🔧 Configuration</a>
+                <hr>
+                <a href="/enhanced/logout" class="nav-link">🚪 Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <h5>Admin Dashboard</h5>
+                <div>
+                    <span style="color: #666;">Welcome, <strong style="color: #fff;">{{ current_user.full_name }}</strong></span>
+                    <span class="role-badge admin">Admin</span>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3>Total Users</h3>
+                            <p class="stat-number">1,234</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👨‍⚕️</div>
+                        <div class="stat-info">
+                            <h3>Doctors</h3>
+                            <p class="stat-number">89</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏥</div>
+                        <div class="stat-info">
+                            <h3>Patients</h3>
+                            <p class="stat-number">1,145</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-info">
+                            <h3>Active Sessions</h3>
+                            <p class="stat-number">67</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-actions">
+                    <h3>Quick Actions</h3>
+                    <div class="action-grid">
+                        <button class="action-btn">Add New User</button>
+                        <button class="action-btn">System Backup</button>
+                        <button class="action-btn">View Logs</button>
+                        <button class="action-btn">Update Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

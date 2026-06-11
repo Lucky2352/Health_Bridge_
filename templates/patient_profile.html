@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Patient Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patient/records" class="nav-link"><i class="fas fa-file-medical"></i> My Records</a>
+                <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
+                <a href="/patient/prescriptions" class="nav-link"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
+                <a href="/patient/history" class="nav-link"><i class="fas fa-history"></i> My History</a>
+                <a href="/patient/profile" class="nav-link active"><i class="fas fa-user-circle"></i> Profile</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-user-circle"></i> My Profile</h5>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-user-circle"></i></div>
+                        <div class="dashboard-stat-number">Active</div>
+                        <div class="dashboard-stat-label">Account Status</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-id-card"></i></div>
+                        <div class="dashboard-stat-number" id="abhaStatus">Not Linked</div>
+                        <div class="dashboard-stat-label">ABHA ID Status</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-shield-alt"></i></div>
+                        <div class="dashboard-stat-number">Secure</div>
+                        <div class="dashboard-stat-label">Data Protection</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-calendar"></i></div>
+                        <div class="dashboard-stat-number">{{ current_user.created_at[:4] if current_user.created_at else '2024' }}</div>
+                        <div class="dashboard-stat-label">Member Since</div>
+                    </div>
+                </div>
+
+                <div class="doctor-tools">
+                    <h3><i class="fas fa-user-cog"></i> Profile Management</h3>
+                    <div class="dashboard-tools">
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-user-edit"></i></div>
+                            <div class="dashboard-tool-title">Personal Information</div>
+                            <div class="dashboard-tool-description">View and manage your personal details, contact information, and account preferences</div>
+                            <div class="profile-info">
+                                <div class="profile-field">
+                                    <label>Patient ID:</label>
+                                    <span style="color: #00d4ff; font-weight: 600;">{{ current_user.patient_id or 'Not Assigned' }}</span>
+                                </div>
+                                <div class="profile-field">
+                                    <label>Full Name:</label>
+                                    <span>{{ current_user.full_name or current_user.username }}</span>
+                                </div>
+                                <div class="profile-field">
+                                    <label>Email:</label>
+                                    <span>{{ current_user.email }}</span>
+                                </div>
+                                <div class="profile-field">
+                                    <label>Account Type:</label>
+                                    <span>Patient</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-id-card"></i></div>
+                            <div class="dashboard-tool-title">ABHA ID Integration</div>
+                            <div class="dashboard-tool-description">Link your Ayushman Bharat Health Account ID for seamless healthcare access across India</div>
+                            <div class="abha-section">
+                                <div class="abha-info">
+                                    <strong>Current ABHA ID:</strong> <span id="abhaId">Not linked</span>
+                                </div>
+                                <button class="btn btn-primary" onclick="linkAbhaId()"><i class="fas fa-link"></i> Link ABHA ID</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABHA ID Modal -->
+            <div id="abhaModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Link ABHA ID</h3>
+                        <button class="close" onclick="closeAbhaModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Enter your 14-digit ABHA ID to link it with your account:</p>
+                        <input type="text" id="abhaInput" placeholder="XX-XXXX-XXXX-XXXX" maxlength="17">
+                        <div class="modal-actions">
+                            <button class="btn btn-primary" onclick="saveAbhaId()">Link ABHA ID</button>
+                            <button class="btn-secondary" onclick="closeAbhaModal()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .profile-info {
+            padding: 1rem 0;
+        }
+        .profile-field {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .profile-field label {
+            font-weight: 600;
+            color: #00d4ff;
+        }
+        .profile-field span {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .abha-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 12px;
+            margin-top: 1rem;
+        }
+        .abha-info {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .modal-header h3 {
+            color: #00d4ff;
+            margin: 0;
+        }
+        .close {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .modal-body input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            margin: 1rem 0;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+
+    <script>
+        function toggleMobileMenu() {
+            document.querySelector('.dashboard-sidebar').classList.toggle('mobile-open');
+        }
+
+        function linkAbhaId() {
+            document.getElementById('abhaModal').style.display = 'block';
+        }
+
+        function closeAbhaModal() {
+            document.getElementById('abhaModal').style.display = 'none';
+            document.getElementById('abhaInput').value = '';
+        }
+
+        function saveAbhaId() {
+            const abhaId = document.getElementById('abhaInput').value.trim();
+            if (abhaId.length === 17) {
+                document.getElementById('abhaId').textContent = abhaId;
+                document.getElementById('abhaStatus').textContent = 'Linked';
+                closeAbhaModal();
+                alert('ABHA ID linked successfully!');
+            } else {
+                alert('Please enter a valid 14-digit ABHA ID');
+            }
+        }
+
+        // Format ABHA ID input
+        document.addEventListener('DOMContentLoaded', function() {
+            const abhaInput = document.getElementById('abhaInput');
+            if (abhaInput) {
+                abhaInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value.length > 14) value = value.substr(0, 14);
+                    let formatted = '';
+                    for (let i = 0; i < value.length; i++) {
+                        if (i === 2 || i === 6 || i === 10) formatted += '-';
+                        formatted += value[i];
+                    }
+                    e.target.value = formatted;
+                });
+            }
+        });
+    </script>
+</body>
+</html>

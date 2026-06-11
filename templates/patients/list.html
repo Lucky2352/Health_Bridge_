@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Records - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .filters-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .filters-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-label {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-input {
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .filter-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .table-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .table {
+            width: 100%;
+            margin: 0;
+            color: white;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .table thead th {
+            background: rgba(0, 212, 255, 0.1);
+            color: #00d4ff;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+            border: none;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .table tbody tr {
+            transition: all 0.3s ease;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .table tbody tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.1);
+        }
+
+        .table tbody td {
+            padding: 1rem;
+            border: none;
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+
+        .patient-id {
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 212, 255, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #00d4ff;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin: 0 0.2rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #51cf66, #40c057);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(81, 207, 102, 0.4);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+        }
+
+        .btn-view {
+            background: linear-gradient(135deg, #00d4ff, #00ffff);
+            color: white;
+        }
+
+        .btn-view:hover {
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
+        }
+
+        .btn-edit {
+            background: linear-gradient(135deg, #ffd43b, #fab005);
+            color: #333;
+        }
+
+        .btn-edit:hover {
+            box-shadow: 0 0 15px rgba(255, 212, 59, 0.6);
+        }
+
+        .btn-delete {
+            background: linear-gradient(135deg, #ff6b6b, #fa5252);
+            color: white;
+        }
+
+        .btn-delete:hover {
+            box-shadow: 0 0 15px rgba(255, 107, 107, 0.6);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem;
+            color: #00d4ff;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 212, 255, 0.2);
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 3rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-style: italic;
+        }
+
+        @media (max-width: 1024px) {
+            .filters-row {
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+            }
+            
+            .filter-group:last-child {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .filters-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-actions {
+                flex-direction: column;
+                width: 100%;
+                gap: 0.5rem;
+            }
+            
+            .table-container {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Doctor Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
+                <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
+                <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
+                <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
+                <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
+                <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-users"></i> Patient Records</h5>
+                </div>
+                <div class="header-actions">
+                    <a href="{{ url_for('patients.add_patient_form') }}" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Add New Patient
+                    </a>
+                    <button class="btn btn-success" onclick="exportCSV()">
+                        <i class="fas fa-download"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}" id="flashMessage">
+                                <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
+                                {{ message }}
+                                <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- Session Success Messages -->
+                {% if session.get('patient_success') %}
+                    <div class="alert alert-success" id="sessionMessage">
+                        <i class="fas fa-check-circle"></i>
+                        {{ session.pop('patient_success') }}
+                        <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
+                    </div>
+                {% endif %}
+                
+                <div class="filters-container">
+                    <div class="filters-row">
+                        <div class="filter-group">
+                            <label class="filter-label">Search Patients</label>
+                            <input type="text" class="filter-input" id="searchInput" placeholder="Search by name, contact, or ABHA ID...">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Gender</label>
+                            <select class="filter-input" id="genderFilter">
+                                <option value="">All Genders</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Min Age</label>
+                            <input type="number" class="filter-input" id="ageMin" placeholder="0">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label">Max Age</label>
+                            <input type="number" class="filter-input" id="ageMax" placeholder="150">
+                        </div>
+                        <div class="filter-group">
+                            <button class="btn btn-primary" onclick="searchPatients()">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="loading" class="loading-spinner" style="display: none;">
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="patientsContainer">
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Patient ID</th>
+                                    <th>Name</th>
+                                    <th>Age</th>
+                                    <th>Gender</th>
+                                    <th>Contact</th>
+                                    <th>ABHA ID</th>
+                                    <th>Created Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="patientsTable">
+                                <tr>
+                                    <td colspan="8" class="no-results">Loading patients...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allPatients = [];
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.dashboard-sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        // Load patients on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            searchPatients();
+        });
+
+        async function searchPatients() {
+            const query = document.getElementById('searchInput').value;
+            const gender = document.getElementById('genderFilter').value;
+            const ageMin = document.getElementById('ageMin').value;
+            const ageMax = document.getElementById('ageMax').value;
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('patientsContainer').style.display = 'none';
+            
+            try {
+                const params = new URLSearchParams();
+                if (query) params.append('q', query);
+                if (gender) params.append('gender', gender);
+                if (ageMin) params.append('age_min', ageMin);
+                if (ageMax) params.append('age_max', ageMax);
+                
+                const response = await fetch(`/patients/api/search?${params}`);
+                const patients = await response.json();
+                
+                allPatients = patients;
+                displayPatients(patients);
+            } catch (error) {
+                document.getElementById('patientsTable').innerHTML = 
+                    '<tr><td colspan="8" class="no-results">Failed to load patients</td></tr>';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('patientsContainer').style.display = 'block';
+            }
+        }
+
+        function displayPatients(patients) {
+            const tbody = document.getElementById('patientsTable');
+            
+            if (patients.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="no-results">No patients found for your account. <a href="/patients/add" style="color: #00d4ff;">Add your first patient</a></td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = patients.map(patient => `
+                <tr>
+                    <td><span class="patient-id">${patient.patient_id}</span></td>
+                    <td>${patient.name}</td>
+                    <td>${patient.age}</td>
+                    <td>${patient.gender}</td>
+                    <td>${patient.contact}</td>
+                    <td>${patient.abha_id ? formatABHAID(patient.abha_id) : '-'}</td>
+                    <td>${new Date(patient.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <a href="/patients/${patient.patient_id}" class="btn btn-sm btn-view">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        <a href="/patients/${patient.patient_id}/edit" class="btn btn-sm btn-edit">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <button class="btn btn-sm btn-delete" onclick="deletePatient('${patient.patient_id}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deletePatient(patientId) {
+            if (confirm('Are you sure you want to delete this patient? This action cannot be undone.')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/patients/${patientId}/delete`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        function exportCSV() {
+            window.location.href = '/patients/api/export/csv';
+        }
+
+        function formatABHAID(abhaId) {
+            if (!abhaId || abhaId.length !== 14) return abhaId;
+            return `${abhaId.substr(0,2)}-${abhaId.substr(2,4)}-${abhaId.substr(6,4)}-${abhaId.substr(10,4)}`;
+        }
+
+        // Enter key search
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPatients();
+            }
+        });
+        
+        // Close alert function
+        function closeAlert() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                alert.style.transform = 'translateY(-20px)';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }
+        
+        // Auto-hide alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.style.opacity = '0';
+                        alert.style.transform = 'translateY(-20px)';
+                        setTimeout(() => alert.remove(), 300);
+                    }
+                }, 5000);
+            });
+        });
+        
+        // Add alert styles
+        const alertStyle = document.createElement('style');
+        alertStyle.textContent = `
+            .alert {
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                margin-bottom: 1.5rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                font-weight: 500;
+                position: relative;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(20px);
+                border: 1px solid;
+                animation: slideInDown 0.5s ease-out;
+            }
+            
+            .alert-success {
+                background: rgba(81, 207, 102, 0.15);
+                border-color: rgba(81, 207, 102, 0.3);
+                color: #51cf66;
+            }
+            
+            .alert-error {
+                background: rgba(255, 107, 107, 0.15);
+                border-color: rgba(255, 107, 107, 0.3);
+                color: #ff6b6b;
+            }
+            
+            .alert-close {
+                position: absolute;
+                right: 1rem;
+                background: none;
+                border: none;
+                color: inherit;
+                font-size: 1.2rem;
+                cursor: pointer;
+                opacity: 0.7;
+                transition: opacity 0.3s ease;
+            }
+            
+            .alert-close:hover {
+                opacity: 1;
+            }
+            
+            @keyframes slideInDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(alertStyle);
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ patient.name }} - Patient Details - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .patient-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .patient-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .patient-title {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffd43b, #fab005);
+            color: #333;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 212, 59, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .patient-content {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 2rem;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            padding: 1.5rem;
+            background: rgba(0, 212, 255, 0.1);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .card-title {
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .info-table {
+            width: 100%;
+            color: white;
+        }
+
+        .info-table td {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .info-table td:first-child {
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.8);
+            width: 40%;
+        }
+
+        .patient-id {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+
+        .abha-id {
+            background: rgba(81, 207, 102, 0.2);
+            color: #51cf66;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+
+        .diagnosis-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .diagnosis-header {
+            padding: 1.5rem;
+            background: rgba(0, 212, 255, 0.1);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .diagnosis-table {
+            width: 100%;
+            color: white;
+        }
+
+        .diagnosis-table th {
+            background: rgba(0, 0, 0, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+            border: none;
+        }
+
+        .diagnosis-table td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .diagnosis-table tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .code-badge {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            display: inline-block;
+            margin-bottom: 0.25rem;
+        }
+
+        .code-badge.icd11 {
+            background: rgba(81, 207, 102, 0.2);
+            color: #51cf66;
+        }
+
+        .no-diagnosis {
+            text-align: center;
+            padding: 3rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .no-diagnosis i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-dialog {
+            max-width: 800px;
+            width: 90%;
+            margin: 2rem;
+        }
+
+        .modal-content {
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 1.5rem 2rem;
+            background: rgba(0, 212, 255, 0.1);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            color: white;
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin: 0;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .btn-close:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-body {
+            padding: 2rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem 2rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 10px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 1024px) {
+            .patient-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .patient-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .patient-container {
+                margin: 1rem;
+                padding: 0;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Doctor Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
+                <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
+                <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
+                <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
+                <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
+                <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-user"></i> Patient Details</h5>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}" id="flashMessage">
+                                <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
+                                {{ message }}
+                                <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- Session Success Messages -->
+                {% if session.get('patient_success') %}
+                    <div class="alert alert-success" id="sessionMessage">
+                        <i class="fas fa-check-circle"></i>
+                        {{ session.pop('patient_success') }}
+                        <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
+                    </div>
+                {% endif %}
+                
+                <div class="patient-container">
+                    <div class="patient-header">
+                        <h2 class="patient-title">
+                            <i class="fas fa-user"></i> {{ patient.name }} ({{ patient.patient_id }})
+                        </h2>
+                        <div class="header-actions">
+                            <a href="{{ url_for('patients.edit_patient_form', patient_id=patient.patient_id) }}" class="btn btn-warning">
+                                <i class="fas fa-edit"></i> Edit Patient
+                            </a>
+                            <a href="{{ url_for('patients.patient_list') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to List
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="patient-content">
+                        <div class="patient-info">
+                            <!-- Patient Information -->
+                            <div class="info-card">
+                                <div class="card-header">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-id-badge"></i> Patient Information
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <table class="info-table">
+                                        <tr>
+                                            <td>Patient ID:</td>
+                                            <td><span class="patient-id">{{ patient.patient_id }}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Name:</td>
+                                            <td>{{ patient.name }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Age:</td>
+                                            <td>{{ patient.age }} years</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Gender:</td>
+                                            <td>{{ patient.gender }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Contact:</td>
+                                            <td>{{ patient.contact }}</td>
+                                        </tr>
+                                        {% if patient.email %}
+                                        <tr>
+                                            <td>Email:</td>
+                                            <td>{{ patient.email }}</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if patient.abha_id %}
+                                        <tr>
+                                            <td>ABHA ID:</td>
+                                            <td><span class="abha-id">{{ patient.abha_id[:2] }}-{{ patient.abha_id[2:6] }}-{{ patient.abha_id[6:10] }}-{{ patient.abha_id[10:14] }}</span></td>
+                                        </tr>
+                                        {% endif %}
+                                        <tr>
+                                            <td>Created:</td>
+                                            <td>{{ patient.created_at[:10] }}</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Medical Information -->
+                            <div class="info-card">
+                                <div class="card-header">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-heartbeat"></i> Medical Information
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div style="margin-bottom: 1rem;">
+                                        <strong style="color: rgba(255, 255, 255, 0.8);">Medical History:</strong>
+                                        <p style="margin-top: 0.5rem; color: white;">{{ patient.medical_history or 'No medical history recorded' }}</p>
+                                    </div>
+                                    <div style="margin-bottom: 1rem;">
+                                        <strong style="color: rgba(255, 255, 255, 0.8);">Allergies:</strong>
+                                        <p style="margin-top: 0.5rem; color: white;">{{ patient.allergies or 'No known allergies' }}</p>
+                                    </div>
+                                    {% if patient.address %}
+                                    <div>
+                                        <strong style="color: rgba(255, 255, 255, 0.8);">Address:</strong>
+                                        <p style="margin-top: 0.5rem; color: white;">{{ patient.address }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Diagnosis History -->
+                        <div class="diagnosis-card">
+                            <div class="diagnosis-header">
+                                <h5 class="card-title">
+                                    <i class="fas fa-clipboard-list"></i> Diagnosis History
+                                </h5>
+                                <button class="btn btn-primary" onclick="openModal()">
+                                    <i class="fas fa-plus"></i> Add Diagnosis
+                                </button>
+                            </div>
+                            <div class="card-body" style="padding: 0;">
+                                {% if diagnoses %}
+                                    <table class="diagnosis-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Symptoms</th>
+                                                <th>NAMASTE Code</th>
+                                                <th>ICD-11 Code</th>
+                                                <th>Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for diagnosis in diagnoses %}
+                                            <tr>
+                                                <td>{{ diagnosis.diagnosis_date }}</td>
+                                                <td>{{ diagnosis.symptoms }}</td>
+                                                <td>
+                                                    {% if diagnosis.namaste_code %}
+                                                        <span class="code-badge">{{ diagnosis.namaste_code }}</span><br>
+                                                        <small style="color: rgba(255, 255, 255, 0.7);">{{ diagnosis.namaste_name }}</small>
+                                                    {% else %}
+                                                        <span style="color: rgba(255, 255, 255, 0.4);">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if diagnosis.icd11_code %}
+                                                        <span class="code-badge icd11">{{ diagnosis.icd11_code }}</span><br>
+                                                        <small style="color: rgba(255, 255, 255, 0.7);">{{ diagnosis.icd11_name }}</small>
+                                                    {% else %}
+                                                        <span style="color: rgba(255, 255, 255, 0.4);">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ diagnosis.notes or '-' }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% else %}
+                                    <div class="no-diagnosis">
+                                        <i class="fas fa-clipboard-check"></i>
+                                        <p>No diagnosis records found</p>
+                                        <button class="btn btn-primary" onclick="openModal()">
+                                            <i class="fas fa-plus"></i> Add First Diagnosis
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Diagnosis Modal -->
+    <div class="modal" id="addDiagnosisModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Diagnosis</h5>
+                    <button type="button" class="btn-close" onclick="closeModal()">&times;</button>
+                </div>
+                <form method="POST" action="{{ url_for('patients.add_diagnosis', patient_id=patient.patient_id) }}">
+                    <div class="modal-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="date" class="form-label">Diagnosis Date</label>
+                                <input type="date" class="form-control" id="date" name="date" value="{{ today }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="symptoms" class="form-label">Symptoms *</label>
+                                <input type="text" class="form-control" id="symptoms" name="symptoms" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="namaste_code" class="form-label">NAMASTE Code</label>
+                                <input type="text" class="form-control" id="namaste_code" name="namaste_code">
+                            </div>
+                            <div class="form-group">
+                                <label for="icd11_code" class="form-label">ICD-11 Code</label>
+                                <input type="text" class="form-control" id="icd11_code" name="icd11_code">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="namaste_name" class="form-label">NAMASTE Name</label>
+                                <input type="text" class="form-control" id="namaste_name" name="namaste_name">
+                            </div>
+                            <div class="form-group">
+                                <label for="icd11_name" class="form-label">ICD-11 Name</label>
+                                <input type="text" class="form-control" id="icd11_name" name="icd11_name">
+                            </div>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                        </div>
+
+                        <div class="alert">
+                            <i class="fas fa-info-circle"></i> 
+                            You can search for codes using the <a href="{{ url_for('search_page') }}" target="_blank" style="color: #00d4ff;">Search Codes</a> page.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Diagnosis</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modal functions
+        function openModal() {
+            document.getElementById('addDiagnosisModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('addDiagnosisModal').classList.remove('show');
+        }
+
+        // Set today's date as default
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+        // Close modal when clicking outside
+        document.getElementById('addDiagnosisModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+        
+        // Close alert function
+        function closeAlert() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                alert.style.transform = 'translateY(-20px)';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }
+        
+        // Auto-hide alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.style.opacity = '0';
+                        alert.style.transform = 'translateY(-20px)';
+                        setTimeout(() => alert.remove(), 300);
+                    }
+                }, 5000);
+            });
+        });
+        
+        // Add alert styles
+        const alertStyle = document.createElement('style');
+        alertStyle.textContent = `
+            .alert {
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                margin-bottom: 1.5rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                font-weight: 500;
+                position: relative;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(20px);
+                border: 1px solid;
+                animation: slideInDown 0.5s ease-out;
+            }
+            
+            .alert-success {
+                background: rgba(81, 207, 102, 0.15);
+                border-color: rgba(81, 207, 102, 0.3);
+                color: #51cf66;
+            }
+            
+            .alert-error {
+                background: rgba(255, 107, 107, 0.15);
+                border-color: rgba(255, 107, 107, 0.3);
+                color: #ff6b6b;
+            }
+            
+            .alert-close {
+                position: absolute;
+                right: 1rem;
+                background: none;
+                border: none;
+                color: inherit;
+                font-size: 1.2rem;
+                cursor: pointer;
+                opacity: 0.7;
+                transition: opacity 0.3s ease;
+            }
+            
+            .alert-close:hover {
+                opacity: 1;
+            }
+            
+            @keyframes slideInDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(alertStyle);
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save Patient Diagnosis - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .diagnosis-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: fadeInUp 0.8s ease-out;
+            position: relative;
+        }
+
+        .diagnosis-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .diagnosis-title {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .back-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            position: relative;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1), 0 0 20px rgba(0, 212, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-text {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 0.5rem;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-right: 1rem;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #51cf66, #40c057);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(81, 207, 102, 0.4);
+            background: linear-gradient(135deg, #40c057, #51cf66);
+        }
+
+        .btn-outline {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+        }
+
+        .btn-outline:hover {
+            background: rgba(0, 212, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
+        }
+
+        .form-actions {
+            display: flex;
+            align-items: center;
+            margin-top: 2.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin-top: 1.5rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .alert-success {
+            background: rgba(81, 207, 102, 0.1);
+            border: 1px solid rgba(81, 207, 102, 0.3);
+            color: #51cf66;
+        }
+
+        .alert-danger {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            color: #ff6b6b;
+        }
+
+        .validation-feedback {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .is-valid + .validation-feedback {
+            color: #51cf66;
+            background: rgba(81, 207, 102, 0.1);
+            border: 1px solid rgba(81, 207, 102, 0.2);
+        }
+
+        .is-invalid + .validation-feedback {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .diagnosis-container {
+                margin: 1rem;
+                padding: 2rem 1.5rem;
+            }
+            
+            .diagnosis-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .form-actions {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Doctor Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
+                <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
+                <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
+                <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
+                <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
+                <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-file-medical"></i> Save Patient Diagnosis</h5>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="diagnosis-container">
+                    <div class="diagnosis-header">
+                        <h2 class="diagnosis-title"><i class="fas fa-file-medical"></i> Patient Diagnosis</h2>
+                        <a href="javascript:history.back()" class="back-btn">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </a>
+                    </div>
+
+                    <form id="diagnosisForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="patientId" class="form-label">Patient ID *</label>
+                                <input type="text" class="form-control" id="patientId" required>
+                                <div class="form-text">Enter existing patient ID (e.g., P0001)</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="abhaId" class="form-label">ABHA ID (Optional)</label>
+                                <input type="text" class="form-control" id="abhaId" name="abha_id" 
+                                       placeholder="14-digit ABHA ID (e.g., 12-3456-7890-1234)" maxlength="17">
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle"></i> Link diagnosis to patient's ABHA ID
+                                </div>
+                                <div class="validation-feedback" style="display: none;"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label for="conditionName" class="form-label">Condition/Diagnosis *</label>
+                            <input type="text" class="form-control" id="conditionName" required 
+                                   placeholder="e.g., Type 2 Diabetes Mellitus, Hypertension, etc.">
+                            <div class="form-text">Enter the medical condition or diagnosis name</div>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label for="notes" class="form-label">Clinical Notes (Optional)</label>
+                            <textarea class="form-control" id="notes" rows="3" 
+                                      placeholder="Additional notes, treatment recommendations, observations..."></textarea>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="namasteCode" class="form-label">NAMASTE Code (Optional)</label>
+                                <input type="text" class="form-control" id="namasteCode" placeholder="e.g., NAM-AYU-002">
+                                <div class="form-text">Enter NAMASTE code from search results or leave blank</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="icd11Code" class="form-label">ICD-11 Code (Optional)</label>
+                                <input type="text" class="form-control" id="icd11Code" placeholder="e.g., TM11.0">
+                                <div class="form-text">Enter ICD-11 code if available</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Save Diagnosis
+                            </button>
+                            <a href="/search-page" class="btn btn-outline">
+                                <i class="fas fa-search"></i> Search Codes First
+                            </a>
+                        </div>
+                    </form>
+
+                    <div id="successMessage" class="alert alert-success" style="display: none;">
+                        <i class="fas fa-check-circle"></i>
+                        <span></span>
+                    </div>
+                    <div id="errorMessage" class="alert alert-danger" style="display: none;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.dashboard-sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        // Pre-fill patient ID from URL parameter
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const patientId = urlParams.get('patient_id');
+            if (patientId) {
+                document.getElementById('patientId').value = patientId;
+            }
+        });
+
+        document.getElementById('diagnosisForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            // Show loading state
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            submitBtn.disabled = true;
+            
+            // Hide previous messages
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+            
+            const abhaId = document.getElementById('abhaId').value.trim();
+            
+            // Validate ABHA ID if provided
+            if (abhaId && !validateABHAID(abhaId)) {
+                showError('Invalid ABHA ID format. Must be 14 digits.');
+                resetButton(submitBtn, originalText);
+                return;
+            }
+            
+            const formData = {
+                patient_id: document.getElementById('patientId').value.trim(),
+                condition_name: document.getElementById('conditionName').value.trim(),
+                namaste_code: document.getElementById('namasteCode').value.trim() || null,
+                icd11_code: document.getElementById('icd11Code').value.trim() || null,
+                notes: document.getElementById('notes').value.trim() || null,
+                abha_id: abhaId ? cleanABHAID(abhaId) : null
+            };
+            
+            if (!formData.patient_id || !formData.condition_name) {
+                showError('Patient ID and Condition Name are required');
+                resetButton(submitBtn, originalText);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/diagnosis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess(data.message + (data.record_id ? ` (Record ID: ${data.record_id})` : ''));
+                    document.getElementById('diagnosisForm').reset();
+                    // Clear validation classes
+                    document.getElementById('abhaId').classList.remove('is-valid', 'is-invalid');
+                    document.querySelector('.validation-feedback').style.display = 'none';
+                } else {
+                    showError(data.error || 'Failed to save diagnosis');
+                }
+            } catch (error) {
+                showError('Network error: Please check your connection and try again.');
+                // Diagnosis save error handled by UI
+            } finally {
+                resetButton(submitBtn, originalText);
+            }
+        });
+        
+        function resetButton(button, originalText) {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.querySelector('span').textContent = message;
+            successDiv.style.display = 'flex';
+            document.getElementById('errorMessage').style.display = 'none';
+            
+            // Auto-hide success message after 5 seconds
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.querySelector('span').textContent = message;
+            errorDiv.style.display = 'flex';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // ABHA ID validation and formatting
+        function validateABHAID(abhaId) {
+            const cleaned = abhaId.replace(/[^0-9]/g, '');
+            return cleaned.length === 14;
+        }
+
+        function cleanABHAID(abhaId) {
+            return abhaId.replace(/[^0-9]/g, '');
+        }
+
+        // ABHA ID formatting on input
+        document.getElementById('abhaId').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/[^0-9-]/g, '');
+            let digits = value.replace(/-/g, '');
+            
+            if (digits.length > 14) {
+                digits = digits.substring(0, 14);
+            }
+            
+            // Format with hyphens
+            if (digits.length > 10) {
+                value = digits.substring(0, 2) + '-' + digits.substring(2, 6) + '-' + digits.substring(6, 10) + '-' + digits.substring(10);
+            } else if (digits.length > 6) {
+                value = digits.substring(0, 2) + '-' + digits.substring(2, 6) + '-' + digits.substring(6);
+            } else if (digits.length > 2) {
+                value = digits.substring(0, 2) + '-' + digits.substring(2);
+            } else {
+                value = digits;
+            }
+            
+            e.target.value = value;
+            
+            // Visual validation feedback
+            const feedback = e.target.nextElementSibling.nextElementSibling;
+            if (digits.length === 14) {
+                e.target.classList.remove('is-invalid');
+                e.target.classList.add('is-valid');
+                feedback.textContent = '✓ Valid ABHA ID format';
+                feedback.style.display = 'block';
+            } else if (digits.length > 0) {
+                e.target.classList.remove('is-valid');
+                e.target.classList.add('is-invalid');
+                feedback.textContent = 'ABHA ID must be 14 digits';
+                feedback.style.display = 'block';
+            } else {
+                e.target.classList.remove('is-valid', 'is-invalid');
+                feedback.style.display = 'none';
+            }
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

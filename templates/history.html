@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient History - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .form-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .form-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .form-title {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1), 0 0 20px rgba(0, 212, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.4);
+            background: linear-gradient(135deg, #5b73ff, #00d4ff);
+        }
+
+
+
+        .results-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-top: 2rem;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .results-title {
+            color: #00d4ff;
+            font-weight: 600;
+            font-size: 1.3rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .table-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table {
+            margin: 0;
+            color: white;
+        }
+
+        .table th {
+            background: rgba(0, 212, 255, 0.1);
+            border: none;
+            color: #00d4ff;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+        }
+
+        .table td {
+            border: none;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .table tbody tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+
+
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            color: #00d4ff;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 212, 255, 0.3);
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin-top: 1rem;
+            border: none;
+        }
+
+        .alert-danger {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            color: #ff6b6b;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            margin: 5% auto;
+            padding: 0;
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow: hidden;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        .modal-header {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            color: #00d4ff;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .close {
+            color: #00d4ff;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .close:hover {
+            color: #5b73ff;
+            transform: scale(1.1);
+        }
+
+        .modal-body {
+            padding: 2rem;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .modal-actions {
+            margin-bottom: 1rem;
+            text-align: right;
+        }
+
+        .json-viewer {
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 0;
+        }
+
+        .btn-fhir {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-fhir:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.5);
+            transform: translateY(-1px);
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .form-container {
+                margin: 1rem;
+                padding: 2rem 1.5rem;
+            }
+            
+            .form-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+            }
+            
+            .modal-body {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Doctor Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
+                <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
+                <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
+                <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
+                <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
+                <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-history"></i> Patient History</h5>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="form-container">
+                    <div class="form-header">
+                        <h2 class="form-title"><i class="fas fa-history"></i> Patient Diagnosis History</h2>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="patientIdInput" class="form-label">Patient ID *</label>
+                            <input type="text" class="form-control" id="patientIdInput" placeholder="e.g., P123" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Actions</label>
+                            <button class="btn btn-primary" onclick="loadHistory()">
+                                <i class="fas fa-search"></i> Load History
+                            </button>
+                        </div>
+                    </div>
+
+
+
+                    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+                        <div class="spinner"></div>
+                    </div>
+
+                    <div id="historyResults" class="results-container" style="display: none;">
+                        <h4 id="historyTitle" class="results-title"></h4>
+                        
+                        <!-- Table format for regular JSON -->
+                        <div id="tableView">
+                            <div class="table-container">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th><i class="fas fa-calendar me-1"></i>Date</th>
+                                            <th><i class="fas fa-stethoscope me-1"></i>Symptom</th>
+                                            <th><i class="fas fa-code me-1"></i>NAMASTE Code</th>
+                                            <th><i class="fas fa-code me-1"></i>ICD-11 Code</th>
+                                            <th><i class="fas fa-cog me-1"></i>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="historyTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+
+                    </div>
+
+                    <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FHIR Modal -->
+    <div id="fhirModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-code"></i> FHIR Patient Resource</h3>
+                <span class="close" onclick="closeFhirModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-actions">
+                    <button class="btn btn-success" onclick="downloadFhir()">
+                        <i class="fas fa-download"></i> Download JSON
+                    </button>
+                </div>
+                <pre id="fhirContent" class="json-viewer"></pre>
+            </div>
+        </div>
+    </div>
+    <script>
+        async function loadHistory() {
+            const patientId = document.getElementById('patientIdInput').value.trim();
+            if (!patientId) {
+                showError('Please enter a Patient ID');
+                return;
+            }
+
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('historyResults').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+
+            try {
+                const response = await fetch(`/patient/${patientId}/history`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayHistory(data, patientId);
+                } else {
+                    showError(data.error || 'Failed to load history');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }
+        }
+
+        function displayHistory(data, patientId) {
+            const patientName = data.patient_name ? ` (${data.patient_name})` : '';
+            document.getElementById('historyTitle').textContent = `History for Patient: ${patientId}${patientName}`;
+            
+            const tableBody = document.getElementById('historyTableBody');
+            tableBody.innerHTML = '';
+
+            if (data.records && data.records.length > 0) {
+                data.records.forEach(record => {
+                    const date = record.timestamp ? new Date(record.timestamp).toLocaleDateString() : 'N/A';
+                    const row = `<tr>
+                        <td>${date}</td>
+                        <td>${record.symptom || 'N/A'}</td>
+                        <td>${record.namaste_code || '-'}</td>
+                        <td>${record.icd11_code || '-'}</td>
+                        <td>
+                            <button class="btn-fhir" onclick="showFhir('${patientId}')" title="View FHIR Format">
+                                <i class="fas fa-file-code"></i> FHIR
+                            </button>
+                        </td>
+                    </tr>`;
+                    tableBody.innerHTML += row;
+                });
+            } else {
+                tableBody.innerHTML = '<tr><td colspan="5" class="no-results">No patient history found for this Patient ID</td></tr>';
+            }
+
+            document.getElementById('historyResults').style.display = 'block';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // FHIR Modal Functions
+        let currentFhirData = null;
+        let currentPatientId = null;
+
+        async function showFhir(patientId) {
+            try {
+                const response = await fetch(`/patients/${patientId}/fhir`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentFhirData = data;
+                    currentPatientId = patientId;
+                    document.getElementById('fhirContent').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('fhirModal').style.display = 'block';
+                } else {
+                    showError(data.error || 'Failed to load FHIR data');
+                }
+            } catch (error) {
+                showError('Network error: ' + error.message);
+            }
+        }
+
+        function closeFhirModal() {
+            document.getElementById('fhirModal').style.display = 'none';
+        }
+
+        function downloadFhir() {
+            if (!currentFhirData || !currentPatientId) return;
+            
+            const dataStr = JSON.stringify(currentFhirData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `patient_${currentPatientId}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('fhirModal');
+            if (event.target === modal) {
+                closeFhirModal();
+            }
+        }
+
+        // Allow Enter key to trigger search
+        document.getElementById('patientIdInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadHistory();
+            }
+        });
+
+
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FHIR Interoperability - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Exo 2', sans-serif;
+        }
+
+        .fhir-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .fhir-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fhir-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #5b73ff, #00ffff);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .fhir-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #00ffff, #00d4ff);
+            color: white;
+        }
+
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 255, 255, 0.4);
+        }
+
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .overview-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .overview-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #5b73ff, #00ffff);
+            border-radius: 16px 16px 0 0;
+        }
+
+        .overview-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.5);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .overview-card.primary {
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .overview-card.success {
+            border-color: rgba(81, 207, 102, 0.3);
+        }
+
+        .overview-card.info {
+            border-color: rgba(0, 255, 255, 0.3);
+        }
+
+        .overview-card.warning {
+            border-color: rgba(255, 212, 59, 0.3);
+        }
+
+        .card-title {
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+        }
+
+        .card-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 0.5rem 0;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        .card-value.primary { color: #00d4ff; }
+        .card-value.success { color: #51cf66; }
+        .card-value.info { color: #00ffff; }
+        .card-value.warning { color: #ffd43b; }
+
+        .bundles-section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            padding: 1.5rem 2rem;
+            background: rgba(0, 212, 255, 0.1);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .section-title {
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .bundles-table {
+            width: 100%;
+            color: white;
+        }
+
+        .bundles-table th {
+            background: rgba(0, 0, 0, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+            border: none;
+        }
+
+        .bundles-table td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .bundles-table tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .bundle-id {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .status-badge.primary {
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            color: white;
+        }
+
+        .status-badge.success {
+            background: linear-gradient(135deg, #51cf66, #40c057);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+        }
+
+        .no-bundles {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .no-bundles i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+            color: #00d4ff;
+        }
+
+        .no-bundles h4 {
+            color: white;
+            margin: 1rem 0;
+        }
+
+        .compliance-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .compliance-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .compliance-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .compliance-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .compliance-item:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .compliance-item:last-child {
+            border-bottom: none;
+        }
+
+        .compliance-icon {
+            color: #51cf66;
+            font-size: 1.2rem;
+            filter: drop-shadow(0 0 5px rgba(81, 207, 102, 0.5));
+        }
+
+        .compliance-text {
+            color: white;
+            font-weight: 500;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .compliance-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .fhir-container {
+                margin: 1rem;
+                padding: 0;
+            }
+            
+            .fhir-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+            
+            .header-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .overview-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Doctor Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
+                <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
+                <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
+                <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
+                <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
+                <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-network-wired"></i> FHIR Interoperability</h5>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="fhir-container">
+                    <div class="fhir-header">
+                        <h2 class="fhir-title">
+                            <i class="fas fa-network-wired"></i> FHIR Interoperability
+                        </h2>
+                        <div class="header-actions">
+                            <a href="{{ url_for('fhir.upload_form') }}" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Upload FHIR Bundle
+                            </a>
+                            <button class="btn btn-info" onclick="loadSampleBundle()">
+                                <i class="fas fa-code"></i> Load Sample Bundle
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- FHIR Overview Cards -->
+                    <div class="overview-grid">
+                        <div class="overview-card primary">
+                            <div class="card-title">Total Bundles</div>
+                            <div class="card-value primary">{{ bundles|length }}</div>
+                        </div>
+                        <div class="overview-card success">
+                            <div class="card-title">FHIR R4</div>
+                            <div class="card-value success">✓</div>
+                        </div>
+                        <div class="overview-card info">
+                            <div class="card-title">Indian EHR</div>
+                            <div class="card-value info">Compatible</div>
+                        </div>
+                        <div class="overview-card warning">
+                            <div class="card-title">Code Mapping</div>
+                            <div class="card-value warning">Active</div>
+                        </div>
+                    </div>
+
+                    <!-- Uploaded Bundles -->
+                    <div class="bundles-section">
+                        <div class="section-header">
+                            <h5 class="section-title">
+                                <i class="fas fa-archive"></i> Uploaded FHIR Bundles
+                            </h5>
+                        </div>
+                        <div style="padding: 0;">
+                            {% if bundles %}
+                                <table class="bundles-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Bundle ID</th>
+                                            <th>Type</th>
+                                            <th>Entries</th>
+                                            <th>Upload Date</th>
+                                            <th>Uploaded By</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for bundle in bundles %}
+                                        <tr>
+                                            <td><span class="bundle-id">{{ bundle.bundle_id }}</span></td>
+                                            <td>
+                                                <span class="status-badge primary">{{ bundle.bundle_type }}</span>
+                                            </td>
+                                            <td>{{ bundle.total_entries }}</td>
+                                            <td>{{ bundle.upload_date[:16] if bundle.upload_date else 'N/A' }}</td>
+                                            <td>{{ bundle.uploaded_by }}</td>
+                                            <td>
+                                                <span class="status-badge success">{{ bundle.status }}</span>
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('fhir.view_bundle', bundle_id=bundle.bundle_id) }}" 
+                                                   class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-eye"></i> View
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <div class="no-bundles">
+                                    <i class="fas fa-file-medical"></i>
+                                    <h4>No FHIR Bundles Uploaded</h4>
+                                    <p>Upload your first FHIR R4 bundle to get started</p>
+                                    <a href="{{ url_for('fhir.upload_form') }}" class="btn btn-primary">
+                                        <i class="fas fa-upload"></i> Upload FHIR Bundle
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- FHIR Standards Info -->
+                    <div class="compliance-grid">
+                        <div class="compliance-card">
+                            <div class="section-header">
+                                <h6 class="section-title">
+                                    <i class="fas fa-info-circle"></i> Supported FHIR Resources
+                                </h6>
+                            </div>
+                            <ul class="compliance-list">
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">Patient</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">Condition</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">Observation</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">Procedure</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">Medication</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">DiagnosticReport</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="compliance-card">
+                            <div class="section-header">
+                                <h6 class="section-title">
+                                    <i class="fas fa-globe"></i> Indian EHR Compliance
+                                </h6>
+                            </div>
+                            <ul class="compliance-list">
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">NDHM SwasthID Support</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">SNOMED CT Integration</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">ICD-11 Mapping</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">NAMASTE Code Mapping</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">FHIR R4 Validation</span>
+                                </li>
+                                <li class="compliance-item">
+                                    <i class="fas fa-check-circle compliance-icon"></i>
+                                    <span class="compliance-text">JSON Format Support</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.dashboard-sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        async function loadSampleBundle() {
+            try {
+                const response = await fetch('/fhir/sample');
+                const sampleBundle = await response.json();
+                
+                // Create a form to submit the sample bundle
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/fhir/upload';
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'fhir_json';
+                input.value = JSON.stringify(sampleBundle, null, 2);
+                
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+                
+            } catch (error) {
+                // Show futuristic notification
+                showNotification('Failed to load sample bundle: ' + error.message, 'error');
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                color: white;
+                font-weight: 500;
+                z-index: 1000;
+                animation: slideIn 0.3s ease-out;
+                backdrop-filter: blur(20px);
+                ${type === 'error' ? 
+                    'background: rgba(255, 107, 107, 0.9); border: 1px solid #ff6b6b;' : 
+                    'background: rgba(81, 207, 102, 0.9); border: 1px solid #51cf66;'
+                }
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Add slide-in animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

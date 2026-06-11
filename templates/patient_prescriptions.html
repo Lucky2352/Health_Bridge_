@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Prescriptions - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Patient Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patient/records" class="nav-link"><i class="fas fa-file-medical"></i> My Records</a>
+                <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
+                <a href="/patient/prescriptions" class="nav-link active"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
+                <a href="/patient/history" class="nav-link"><i class="fas fa-history"></i> My History</a>
+                <a href="/patient/profile" class="nav-link"><i class="fas fa-user-circle"></i> Profile</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-prescription-bottle"></i> My Prescriptions</h5>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-pills"></i></div>
+                        <div class="dashboard-stat-number" id="activeCount">0</div>
+                        <div class="dashboard-stat-label">Active</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-prescription-bottle"></i></div>
+                        <div class="dashboard-stat-number" id="totalCount">0</div>
+                        <div class="dashboard-stat-label">Total</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-clock"></i></div>
+                        <div class="dashboard-stat-number" id="recentCount">0</div>
+                        <div class="dashboard-stat-label">This Month</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="dashboard-stat-number" id="alertCount">0</div>
+                        <div class="dashboard-stat-label">Alerts</div>
+                    </div>
+                </div>
+
+                <div class="doctor-tools">
+                    <h3><i class="fas fa-prescription-bottle"></i> Prescription Management</h3>
+                    <div class="dashboard-tools">
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-pills"></i></div>
+                            <div class="dashboard-tool-title">My Prescriptions</div>
+                            <div class="dashboard-tool-description">Track your medications, dosages, and prescription history from healthcare providers</div>
+                            <div style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.6);">
+                                <i class="fas fa-pills" style="font-size: 2rem; color: #ffd43b; opacity: 0.5; margin-bottom: 1rem;"></i>
+                                <h4>No Active Prescriptions</h4>
+                                <p>Your prescribed medications will appear here once added by your doctor.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleMobileMenu() {
+            document.querySelector('.dashboard-sidebar').classList.toggle('mobile-open');
+        }
+    </script>
+</body>
+</html>

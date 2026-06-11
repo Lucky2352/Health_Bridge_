@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Patient Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patient/records" class="nav-link"><i class="fas fa-file-medical"></i> My Records</a>
+                <a href="/patient/prescriptions" class="nav-link"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
+                <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
+                <a href="/patient/profile" class="nav-link"><i class="fas fa-user-circle"></i> Profile & ABHA</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-user-heart"></i> Patient Dashboard</h5>
+                </div>
+                <div>
+                    <span>Welcome, <strong>{{ current_user.full_name or current_user.username or current_user.email }}</strong></span>
+                    <span class="role-badge"><i class="fas fa-user"></i> Patient</span>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}" id="flashMessage">
+                                <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
+                                {{ message }}
+                                <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- Session Success Messages -->
+                {% if session.get('login_success') %}
+                    <div class="alert alert-success" id="sessionMessage">
+                        <i class="fas fa-check-circle"></i>
+                        {{ session.pop('login_success') }}
+                        <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
+                    </div>
+                {% endif %}
+                
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat-card" onclick="window.location.href='/patient/records'" style="cursor: pointer;">
+                        <div class="dashboard-stat-icon"><i class="fas fa-file-medical-alt"></i></div>
+                        <div class="dashboard-stat-number" id="recordsCount">0</div>
+                        <div class="dashboard-stat-label">Health Records</div>
+                    </div>
+                    <div class="dashboard-stat-card" onclick="window.location.href='/patient/prescriptions'" style="cursor: pointer;">
+                        <div class="dashboard-stat-icon"><i class="fas fa-pills"></i></div>
+                        <div class="dashboard-stat-number" id="prescriptionsCount">0</div>
+                        <div class="dashboard-stat-label">Prescriptions</div>
+                    </div>
+                    <div class="dashboard-stat-card" onclick="window.location.href='/patient/appointments'" style="cursor: pointer;">
+                        <div class="dashboard-stat-icon"><i class="fas fa-calendar-check"></i></div>
+                        <div class="dashboard-stat-number" id="appointmentsCount">0</div>
+                        <div class="dashboard-stat-label">Appointments</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-history"></i></div>
+                        <div class="dashboard-stat-number" id="visitsCount">0</div>
+                        <div class="dashboard-stat-label">Total Visits</div>
+                    </div>
+                </div>
+
+                <div class="doctor-tools">
+                    <h3><i class="fas fa-heart"></i> My Health Dashboard</h3>
+                    <div class="dashboard-tools">
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-file-medical"></i></div>
+                            <div class="dashboard-tool-title">My Health Records</div>
+                            <div class="dashboard-tool-description">View your complete medical history, test results, and doctor's notes with secure access</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/patient/records'"><i class="fas fa-arrow-right"></i> View Records</button>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-prescription-bottle"></i></div>
+                            <div class="dashboard-tool-title">Prescriptions</div>
+                            <div class="dashboard-tool-description">Track your medications, dosages, and prescription history from healthcare providers</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/patient/prescriptions'"><i class="fas fa-arrow-right"></i> View Prescriptions</button>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-calendar-check"></i></div>
+                            <div class="dashboard-tool-title">Appointments</div>
+                            <div class="dashboard-tool-description">Manage your healthcare appointments and view upcoming consultations</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/patient/appointments'"><i class="fas fa-arrow-right"></i> View Appointments</button>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-user-circle"></i></div>
+                            <div class="dashboard-tool-title">Profile & ABHA ID</div>
+                            <div class="dashboard-tool-description">Manage your personal information and link your ABHA ID for seamless healthcare access</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/patient/profile'"><i class="fas fa-arrow-right"></i> Manage Profile</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const sidebar = document.querySelector('.dashboard-sidebar');
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            
+            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+
+        // Load dashboard statistics
+        document.addEventListener('DOMContentLoaded', async function() {
+            const recordsCountElement = document.getElementById('recordsCount');
+            const prescriptionsCountElement = document.getElementById('prescriptionsCount');
+            const appointmentsCountElement = document.getElementById('appointmentsCount');
+            const visitsCountElement = document.getElementById('visitsCount');
+            
+            // Set loading state
+            recordsCountElement.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/patient/api/dashboard-stats');
+                const stats = await response.json();
+                
+                // Animate counts
+                animateCount(recordsCountElement, stats.records || 0);
+                animateCount(prescriptionsCountElement, stats.prescriptions || 0);
+                animateCount(appointmentsCountElement, stats.appointments || 0);
+                animateCount(visitsCountElement, stats.visits || 0);
+                
+            } catch (error) {
+                // Set all counts to 0 on error
+                recordsCountElement.textContent = '0';
+                prescriptionsCountElement.textContent = '0';
+                appointmentsCountElement.textContent = '0';
+                visitsCountElement.textContent = '0';
+            }
+        });
+        
+        // Animate number counting
+        function animateCount(element, targetCount) {
+            let currentCount = 0;
+            const increment = Math.max(1, Math.ceil(targetCount / 20));
+            
+            const countAnimation = setInterval(() => {
+                currentCount += increment;
+                if (currentCount >= targetCount) {
+                    currentCount = targetCount;
+                    clearInterval(countAnimation);
+                }
+                element.textContent = currentCount;
+            }, 50);
+        }
+
+        // Close alert function
+        function closeAlert() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                alert.style.transform = 'translateY(-20px)';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }
+        
+        // Auto-hide alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.style.opacity = '0';
+                        alert.style.transform = 'translateY(-20px)';
+                        setTimeout(() => alert.remove(), 300);
+                    }
+                }, 5000);
+            });
+        });
+
+        // Add CSS for alerts and ripple animation
+        const style = document.createElement('style');
+        style.textContent = `
+            .alert {
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                margin-bottom: 1.5rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                font-weight: 500;
+                position: relative;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(20px);
+                border: 1px solid;
+                animation: slideInDown 0.5s ease-out;
+            }
+            
+            .alert-success {
+                background: rgba(81, 207, 102, 0.15);
+                border-color: rgba(81, 207, 102, 0.3);
+                color: #51cf66;
+            }
+            
+            .alert-error {
+                background: rgba(255, 107, 107, 0.15);
+                border-color: rgba(255, 107, 107, 0.3);
+                color: #ff6b6b;
+            }
+            
+            .alert-close {
+                position: absolute;
+                right: 1rem;
+                background: none;
+                border: none;
+                color: inherit;
+                font-size: 1.2rem;
+                cursor: pointer;
+                opacity: 0.7;
+                transition: opacity 0.3s ease;
+            }
+            
+            .alert-close:hover {
+                opacity: 1;
+            }
+            
+            @keyframes slideInDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            @keyframes ripple {
+                to {
+                    transform: scale(4);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard - NAMASTE + ICD EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Doctor Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
+                <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
+                <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
+                <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
+                <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
+                <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-hospital"></i> Doctor Dashboard</h5>
+                </div>
+                <div>
+                    <span>Welcome, <strong>{{ current_user.full_name or current_user.username or current_user.email }}</strong></span>
+                    <span class="role-badge"><i class="fas fa-user-md"></i> Doctor</span>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}" id="flashMessage">
+                                <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
+                                {{ message }}
+                                <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- Session Success Messages -->
+                {% if session.get('login_success') %}
+                    <div class="alert alert-success" id="sessionMessage">
+                        <i class="fas fa-check-circle"></i>
+                        {{ session.pop('login_success') }}
+                        <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
+                    </div>
+                {% endif %}
+                
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat-card" onclick="window.location.href='/patients/'" style="cursor: pointer;">
+                        <div class="dashboard-stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="dashboard-stat-number" id="patientCount">0</div>
+                        <div class="dashboard-stat-label">My Patients</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-calendar-check"></i></div>
+                        <div class="dashboard-stat-number" id="appointmentCount">0</div>
+                        <div class="dashboard-stat-label">Today's Appointments</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-pills"></i></div>
+                        <div class="dashboard-stat-number" id="prescriptionCount">0</div>
+                        <div class="dashboard-stat-label">Prescriptions</div>
+                    </div>
+                    <div class="dashboard-stat-card">
+                        <div class="dashboard-stat-icon"><i class="fas fa-exchange-alt"></i></div>
+                        <div class="dashboard-stat-number" id="translationCount">0</div>
+                        <div class="dashboard-stat-label">Code Translations</div>
+                    </div>
+                </div>
+
+                <div class="doctor-info" style="background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(0, 212, 255, 0.2); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h3 style="color: #00d4ff; margin: 0 0 0.5rem 0;"><i class="fas fa-user-md"></i> Doctor Information</h3>
+                        <p style="color: rgba(255, 255, 255, 0.8); margin: 0;">Logged in as: <strong>{{ current_user.full_name or current_user.username }}</strong></p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="background: rgba(0, 212, 255, 0.2); color: #00d4ff; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 600; font-size: 1.1rem;">
+                            <i class="fas fa-id-badge"></i> Doctor ID: {{ current_user.doctor_id or 'Not Assigned' }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="doctor-tools">
+                    <h3><i class="fas fa-tools"></i> Medical Tools</h3>
+                    <div class="dashboard-tools">
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-user-friends"></i></div>
+                            <div class="dashboard-tool-title">Patient Management</div>
+                            <div class="dashboard-tool-description">Add, view, and manage patient records with ABHA ID support and comprehensive medical profiles</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/patients/'"><i class="fas fa-arrow-right"></i> Manage Patients</button>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-chart-bar"></i></div>
+                            <div class="dashboard-tool-title">Reports & Analytics</div>
+                            <div class="dashboard-tool-description">View interactive charts, statistics, and export comprehensive medical reports</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/reports/'"><i class="fas fa-arrow-right"></i> View Reports</button>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-network-wired"></i></div>
+                            <div class="dashboard-tool-title">FHIR Interoperability</div>
+                            <div class="dashboard-tool-description">Upload and process FHIR R4 bundles with Indian EHR standards compliance</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/fhir/'"><i class="fas fa-arrow-right"></i> FHIR Dashboard</button>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-search-plus"></i></div>
+                            <div class="dashboard-tool-title">Search & Translation</div>
+                            <div class="dashboard-tool-description">Search NAMASTE and ICD-11 codes with intelligent translation support</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/search-page'"><i class="fas fa-arrow-right"></i> Search Codes</button>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-file-medical"></i></div>
+                            <div class="dashboard-tool-title">Save Diagnosis</div>
+                            <div class="dashboard-tool-description">Record patient diagnoses with ABHA ID integration and automated code mapping</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/diagnosis-page'"><i class="fas fa-arrow-right"></i> Save Diagnosis</button>
+                        </div>
+                        <div class="dashboard-tool-card">
+                            <div class="dashboard-tool-icon"><i class="fas fa-clipboard-list"></i></div>
+                            <div class="dashboard-tool-title">Patient History</div>
+                            <div class="dashboard-tool-description">View comprehensive medical history and diagnosis records with timeline view</div>
+                            <button class="btn btn-primary" onclick="window.location.href='/history-page'"><i class="fas fa-arrow-right"></i> View History</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const sidebar = document.querySelector('.dashboard-sidebar');
+            const toggle = document.querySelector('.mobile-menu-toggle');
+            
+            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+
+        // Load dashboard statistics
+        document.addEventListener('DOMContentLoaded', async function() {
+            const patientCountElement = document.getElementById('patientCount');
+            const appointmentCountElement = document.getElementById('appointmentCount');
+            const prescriptionCountElement = document.getElementById('prescriptionCount');
+            const translationCountElement = document.getElementById('translationCount');
+            
+            // Set loading state
+            patientCountElement.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/enhanced/api/dashboard-stats');
+                const stats = await response.json();
+                
+                // Animate patient count
+                animateCount(patientCountElement, stats.my_patients);
+                
+                // Set other counts immediately (no animation needed for smaller numbers)
+                appointmentCountElement.textContent = stats.todays_appointments;
+                prescriptionCountElement.textContent = stats.prescriptions;
+                translationCountElement.textContent = stats.code_translations;
+                
+            } catch (error) {
+                // Set all counts to 0 on error
+                patientCountElement.textContent = '0';
+                appointmentCountElement.textContent = '0';
+                prescriptionCountElement.textContent = '0';
+                translationCountElement.textContent = '0';
+            }
+        });
+        
+        // Animate number counting
+        function animateCount(element, targetCount) {
+            let currentCount = 0;
+            const increment = Math.max(1, Math.ceil(targetCount / 20));
+            
+            const countAnimation = setInterval(() => {
+                currentCount += increment;
+                if (currentCount >= targetCount) {
+                    currentCount = targetCount;
+                    clearInterval(countAnimation);
+                }
+                element.textContent = currentCount;
+            }, 50);
+        }
+
+        // Close alert function
+        function closeAlert() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                alert.style.transform = 'translateY(-20px)';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }
+        
+        // Auto-hide alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.style.opacity = '0';
+                        alert.style.transform = 'translateY(-20px)';
+                        setTimeout(() => alert.remove(), 300);
+                    }
+                }, 5000);
+            });
+        });
+
+        // Add CSS for alerts and ripple animation
+        const style = document.createElement('style');
+        style.textContent = `
+            .alert {
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                margin-bottom: 1.5rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                font-weight: 500;
+                position: relative;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(20px);
+                border: 1px solid;
+                animation: slideInDown 0.5s ease-out;
+            }
+            
+            .alert-success {
+                background: rgba(81, 207, 102, 0.15);
+                border-color: rgba(81, 207, 102, 0.3);
+                color: #51cf66;
+            }
+            
+            .alert-error {
+                background: rgba(255, 107, 107, 0.15);
+                border-color: rgba(255, 107, 107, 0.3);
+                color: #ff6b6b;
+            }
+            
+            .alert-close {
+                position: absolute;
+                right: 1rem;
+                background: none;
+                border: none;
+                color: inherit;
+                font-size: 1.2rem;
+                cursor: pointer;
+                opacity: 0.7;
+                transition: opacity 0.3s ease;
+            }
+            
+            .alert-close:hover {
+                opacity: 1;
+            }
+            
+            @keyframes slideInDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            @keyframes ripple {
+                to {
+                    transform: scale(4);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

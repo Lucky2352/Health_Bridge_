@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Analytics - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Exo 2', sans-serif;
+        }
+
+        .reports-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .reports-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .reports-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #5b73ff, #00ffff);
+            border-radius: 20px 20px 0 0;
+        }
+
+        .reports-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            color: white;
+        }
+
+        .btn-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #51cf66, #40c057);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(81, 207, 102, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b, #fa5252);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #00d4ff, #5b73ff, #00ffff);
+            border-radius: 16px 16px 0 0;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.5);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .metric-card.primary {
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .metric-card.success {
+            border-color: rgba(81, 207, 102, 0.3);
+        }
+
+        .metric-card.info {
+            border-color: rgba(0, 255, 255, 0.3);
+        }
+
+        .metric-card.warning {
+            border-color: rgba(255, 212, 59, 0.3);
+        }
+
+        .metric-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5));
+            animation: iconFloat 3s ease-in-out infinite;
+        }
+
+        .metric-icon.primary { color: #00d4ff; }
+        .metric-icon.success { color: #51cf66; }
+        .metric-icon.info { color: #00ffff; }
+        .metric-icon.warning { color: #ffd43b; }
+
+        .metric-number {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: white;
+            margin: 0.5rem 0;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        .metric-label {
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .chart-header {
+            padding: 1.5rem;
+            background: rgba(0, 212, 255, 0.1);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .chart-title {
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .chart-body {
+            padding: 1.5rem;
+        }
+
+        .trends-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .activity-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .activity-item:hover {
+            background: rgba(0, 212, 255, 0.05);
+            border-color: rgba(0, 212, 255, 0.2);
+        }
+
+        .activity-name {
+            font-weight: 500;
+            color: white;
+        }
+
+        .activity-type {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .activity-date {
+            font-size: 0.8rem;
+            color: rgba(0, 212, 255, 0.8);
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .pagination-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 12px;
+            color: #00d4ff;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .page-indicator {
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            font-size: 0.9rem;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .table {
+            width: 100%;
+            margin: 0;
+            color: white;
+        }
+
+        .table th {
+            background: rgba(0, 0, 0, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+            border: none;
+        }
+
+        .table td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.9rem;
+        }
+
+        .table tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .code-badge {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+        }
+
+        .code-badge.success {
+            background: rgba(81, 207, 102, 0.2);
+            color: #51cf66;
+        }
+
+        .count-badge {
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .count-badge.info {
+            background: linear-gradient(135deg, #00ffff, #00d4ff);
+        }
+
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            margin-top: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-style: italic;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes iconFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        @media (max-width: 1024px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .trends-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .pagination-container {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .pagination-controls {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+
+        .filter-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-input {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .filter-input:focus {
+            outline: none;
+            border-color: rgba(0, 212, 255, 0.6);
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
+        }
+
+        .filter-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #refreshBtn {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            transition: all 0.3s ease;
+        }
+
+        #refreshBtn:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.5);
+            transform: rotate(180deg);
+        }
+
+        #refreshBtn.loading {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .reports-container {
+                margin: 1rem;
+                padding: 0;
+            }
+            
+            .reports-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+            
+            .header-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .filter-actions {
+                flex-direction: column;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .pagination-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Doctor Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
+                <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
+                <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
+                <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
+                <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
+                <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-chart-line"></i> Reports & Analytics</h5>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="reports-container">
+                    <div class="reports-header">
+                        <h2 class="reports-title">
+                            <i class="fas fa-chart-bar"></i> Patient Reports Dashboard
+                        </h2>
+                        <div class="header-actions">
+                            <a href="{{ url_for('reports.export_pdf') }}" class="btn btn-danger">
+                                <i class="fas fa-file-pdf"></i> Export PDF
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Key Metrics Cards -->
+                    <div class="metrics-grid">
+                        <div class="metric-card primary">
+                            <div class="metric-icon primary">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="metric-number">{{ analytics.patient_stats.total }}</div>
+                            <div class="metric-label">Total Patients</div>
+                        </div>
+                        <div class="metric-card success">
+                            <div class="metric-icon success">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                            <div class="metric-number">{{ analytics.patient_stats.new_this_month }}</div>
+                            <div class="metric-label">New This Month</div>
+                        </div>
+                        <div class="metric-card info">
+                            <div class="metric-icon info">
+                                <i class="fas fa-file-medical"></i>
+                            </div>
+                            <div class="metric-number">{{ fhir_analytics.total_bundles }}</div>
+                            <div class="metric-label">FHIR Bundles</div>
+                        </div>
+                        <div class="metric-card warning">
+                            <div class="metric-icon warning">
+                                <i class="fas fa-link"></i>
+                            </div>
+                            <div class="metric-number">{{ fhir_analytics.mapped_conditions }}</div>
+                            <div class="metric-label">Mapped Conditions</div>
+                        </div>
+                    </div>
+
+                    <!-- Filters Row -->
+                    <div class="chart-card" style="margin-bottom: 2rem;">
+                        <div class="chart-header">
+                            <h5 class="chart-title">
+                                <i class="fas fa-filter"></i> Filter Patient Reports
+                            </h5>
+                        </div>
+                        <div class="chart-body">
+                            <div class="filter-container">
+                                <div class="filter-group">
+                                    <label class="filter-label">Patient ID</label>
+                                    <input type="text" id="filterPatientId" class="filter-input" placeholder="Enter Patient ID">
+                                </div>
+                                <div class="filter-group">
+                                    <label class="filter-label">NAMASTE Code</label>
+                                    <input type="text" id="filterNamasteCode" class="filter-input" placeholder="Enter NAMASTE code">
+                                </div>
+                                <div class="filter-group">
+                                    <label class="filter-label">ICD-11 Code</label>
+                                    <input type="text" id="filterIcdCode" class="filter-input" placeholder="Enter ICD-11 code">
+                                </div>
+                                <div class="filter-group">
+                                    <label class="filter-label">Diagnosis</label>
+                                    <input type="text" id="filterDiagnosis" class="filter-input" placeholder="Search diagnosis">
+                                </div>
+                            </div>
+                            <div class="filter-actions">
+                                <button class="btn btn-info" onclick="applyFilters()">
+                                    <i class="fas fa-search"></i> Apply Filters
+                                </button>
+                                <button class="btn btn-secondary" onclick="clearFilters()">
+                                    <i class="fas fa-times"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Analytics Charts -->
+                    <div class="charts-grid" style="margin-bottom: 2rem;">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h5 class="chart-title">
+                                    <i class="fas fa-chart-bar"></i> Patient Registrations
+                                </h5>
+                                <button class="btn btn-sm btn-outline-primary" onclick="refreshAnalytics()" id="refreshBtn">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                            </div>
+                            <div class="chart-body">
+                                <canvas id="registrationChart" width="400" height="300"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h5 class="chart-title">
+                                    <i class="fas fa-chart-pie"></i> Diagnosis Distribution
+                                </h5>
+                            </div>
+                            <div class="chart-body">
+                                <canvas id="diagnosisChart" width="400" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Patient Reports Table -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h5 class="chart-title">
+                                <i class="fas fa-table"></i> Patient Reports
+                            </h5>
+                        </div>
+                        <div class="chart-body" style="padding: 0;">
+                            <div class="table-responsive">
+                                <table class="table" id="patientReportsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Patient ID</th>
+                                            <th>Patient Name</th>
+                                            <th>Date</th>
+                                            <th>Diagnosis</th>
+                                            <th>NAMASTE Code</th>
+                                            <th>ICD-11 Code</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportsTableBody">
+                                        <tr>
+                                            <td colspan="7" class="text-center" style="color: rgba(255,255,255,0.6); padding: 2rem;">
+                                                <i class="fas fa-spinner fa-spin"></i> Loading patient reports...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="pagination-container" style="padding: 1.5rem; background: rgba(0, 0, 0, 0.1); border-top: 1px solid rgba(0, 212, 255, 0.2);">
+                                <div class="pagination-info">
+                                    <span style="color: rgba(255,255,255,0.8); font-size: 0.9rem; font-weight: 500;" id="recordsInfo">Showing 0 records</span>
+                                </div>
+                                <div class="pagination-controls">
+                                    <button class="pagination-btn prev-btn" onclick="previousPage()" id="prevBtn" disabled>
+                                        <i class="fas fa-angle-left"></i>
+                                        <span>Previous</span>
+                                    </button>
+                                    <div class="page-indicator">
+                                        <span id="pageInfo">Page 1 of 1</span>
+                                    </div>
+                                    <button class="pagination-btn next-btn" onclick="nextPage()" id="nextBtn" disabled>
+                                        <span>Next</span>
+                                        <i class="fas fa-angle-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                    <!-- Role-based Access Info -->
+                    {% if user_role != 'admin' %}
+                    <div class="alert">
+                        <i class="fas fa-info-circle"></i>
+                        <div>
+                            <strong>Note:</strong> You are viewing reports for your patients only. 
+                            {% if user_role == 'doctor' %}
+                                Administrators can see system-wide reports.
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Chart.js theme configuration
+        Chart.defaults.font.family = 'Exo 2, sans-serif';
+        Chart.defaults.color = '#ffffff';
+        Chart.defaults.plugins.legend.labels.usePointStyle = true;
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.dashboard-sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        // Global variables for pagination
+        let currentPage = 1;
+        let totalPages = 1;
+        let allReports = [];
+        let filteredReports = [];
+        const recordsPerPage = 10;
+
+        // Load patient reports and analytics on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPatientReports();
+            setupSearchListener();
+            loadAnalytics();
+        });
+
+        // Global chart variables
+        let registrationChart = null;
+        let diagnosisChart = null;
+
+        // Setup search listener (removed)
+        function setupSearchListener() {
+            // Search functionality removed as requested
+        }
+
+        // Load patient reports from API
+        async function loadPatientReports() {
+            try {
+                const response = await fetch('/reports/api/patient-reports');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                allReports = data.reports || [];
+                filteredReports = [...allReports];
+                displayReports();
+                
+            } catch (error) {
+                document.getElementById('reportsTableBody').innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center" style="color: rgba(255,107,107,0.8); padding: 2rem;">
+                            <i class="fas fa-exclamation-triangle"></i> Error loading reports: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Display reports with pagination
+        function displayReports() {
+            const tbody = document.getElementById('reportsTableBody');
+            const startIndex = (currentPage - 1) * recordsPerPage;
+            const endIndex = startIndex + recordsPerPage;
+            const pageReports = filteredReports.slice(startIndex, endIndex);
+            
+            totalPages = Math.ceil(filteredReports.length / recordsPerPage);
+            
+            if (pageReports.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center" style="color: rgba(255,255,255,0.6); padding: 2rem;">
+                            <i class="fas fa-search"></i> No reports found
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = pageReports.map(report => `
+                    <tr>
+                        <td><span class="code-badge">${report.patient_id}</span></td>
+                        <td>${report.patient_name || 'N/A'}</td>
+                        <td>${formatDate(report.diagnosis_date || report.created_at)}</td>
+                        <td>${report.symptoms || 'N/A'}</td>
+                        <td>${report.namaste_code ? `<span class="code-badge">${report.namaste_code}</span>` : 'N/A'}</td>
+                        <td>${report.icd11_code ? `<span class="code-badge success">${report.icd11_code}</span>` : 'N/A'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info" onclick="viewReport('${report.patient_id}')" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="downloadReport('${report.patient_id}')" title="Download PDF">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+            
+            updatePaginationInfo();
+        }
+
+        // Update pagination info
+        function updatePaginationInfo() {
+            document.getElementById('recordsInfo').textContent = 
+                `Showing ${filteredReports.length} of ${allReports.length} records`;
+            document.getElementById('pageInfo').textContent = 
+                `Page ${currentPage} of ${totalPages}`;
+            
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        }
+
+        // Pagination functions
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                displayReports();
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayReports();
+            }
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const patientId = document.getElementById('filterPatientId').value.toLowerCase();
+            const namasteCode = document.getElementById('filterNamasteCode').value.toLowerCase();
+            const icdCode = document.getElementById('filterIcdCode').value.toLowerCase();
+            const diagnosis = document.getElementById('filterDiagnosis').value.toLowerCase();
+            
+            filteredReports = allReports.filter(report => {
+                let matches = true;
+                
+                if (patientId && !report.patient_id.toLowerCase().includes(patientId)) {
+                    matches = false;
+                }
+                
+                if (namasteCode && (!report.namaste_code || !report.namaste_code.toLowerCase().includes(namasteCode))) {
+                    matches = false;
+                }
+                
+                if (icdCode && (!report.icd11_code || !report.icd11_code.toLowerCase().includes(icdCode))) {
+                    matches = false;
+                }
+                
+                if (diagnosis && (!report.symptoms || !report.symptoms.toLowerCase().includes(diagnosis))) {
+                    matches = false;
+                }
+                
+                return matches;
+            });
+            
+            currentPage = 1;
+            displayReports();
+        }
+
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('filterPatientId').value = '';
+            document.getElementById('filterNamasteCode').value = '';
+            document.getElementById('filterIcdCode').value = '';
+            document.getElementById('filterDiagnosis').value = '';
+            
+            filteredReports = [...allReports];
+            currentPage = 1;
+            displayReports();
+        }
+
+        // View report details
+        function viewReport(patientId) {
+            window.open(`/patient/${patientId}/history`, '_blank');
+        }
+
+        // Download individual report
+        function downloadReport(patientId) {
+            window.open(`/reports/patient/${patientId}/pdf`, '_blank');
+        }
+
+        // Format date helper
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // Load analytics data
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/reports/api/pandas-analytics');
+                const result = await response.json();
+                
+                if (result.success) {
+                    createRegistrationChart(result.data.registrations);
+                    createDiagnosisChart(result.data.diagnoses);
+                } else {
+                    // Analytics error - charts will show no data message
+                }
+            } catch (error) {
+                // Error loading analytics - charts will show no data message
+            }
+        }
+
+        // Create registration chart
+        function createRegistrationChart(data) {
+            const ctx = document.getElementById('registrationChart').getContext('2d');
+            
+            if (registrationChart) {
+                registrationChart.destroy();
+            }
+            
+            const monthlyData = data.monthly || [];
+            
+            if (monthlyData.length === 0) {
+                // Show no data message
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.font = '16px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('No chart data available for your patients yet.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+            
+            registrationChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: monthlyData.map(item => item.month),
+                    datasets: [{
+                        label: 'Patients Registered',
+                        data: monthlyData.map(item => item.count),
+                        backgroundColor: 'rgba(0, 212, 255, 0.3)',
+                        borderColor: '#00d4ff',
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#ffffff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#ffffff' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Create diagnosis chart
+        function createDiagnosisChart(data) {
+            const ctx = document.getElementById('diagnosisChart').getContext('2d');
+            
+            if (diagnosisChart) {
+                diagnosisChart.destroy();
+            }
+            
+            const categories = data.categories || [];
+            
+            if (categories.length === 0) {
+                // Show no data message
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.font = '16px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('No diagnosis data available for your patients yet.', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+            
+            diagnosisChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: categories.map(item => item.category),
+                    datasets: [{
+                        data: categories.map(item => item.count),
+                        backgroundColor: [
+                            '#00d4ff', '#5b73ff', '#00ffff', '#51cf66', '#ffd43b',
+                            '#ff6b6b', '#9966ff', '#ff9f40', '#4bc0c0', '#c9cbcf'
+                        ],
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#ffffff',
+                                padding: 15,
+                                font: { size: 11 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Refresh analytics
+        async function refreshAnalytics() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.classList.add('loading');
+            
+            try {
+                await fetch('/reports/api/refresh-analytics');
+                await loadAnalytics();
+                await loadPatientReports(); // Also refresh table data
+            } catch (error) {
+                // Error refreshing analytics
+            } finally {
+                refreshBtn.classList.remove('loading');
+            }
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

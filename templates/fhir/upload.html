@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload FHIR Bundle - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .upload-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .upload-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .upload-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .dropzone {
+            border: 2px dashed rgba(0, 212, 255, 0.3);
+            border-radius: 20px;
+            padding: 3rem;
+            text-align: center;
+            background: rgba(0, 212, 255, 0.05);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dropzone::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .dropzone:hover::before {
+            left: 100%;
+        }
+
+        .dropzone:hover {
+            border-color: rgba(0, 212, 255, 0.6);
+            background: rgba(0, 212, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(0, 212, 255, 0.2);
+        }
+
+        .dropzone.dragover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.2);
+            transform: scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.3);
+        }
+
+        .dropzone-icon {
+            font-size: 4rem;
+            color: #00d4ff;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5));
+        }
+
+        .preview-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            margin-top: 2rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .preview-header {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-content {
+            padding: 1.5rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .resource-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .resource-item:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .resource-type {
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .resource-details {
+            display: none;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .json-viewer {
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .status-indicator {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-success {
+            background: rgba(81, 207, 102, 0.2);
+            border: 1px solid rgba(81, 207, 102, 0.3);
+            color: #51cf66;
+        }
+
+        .status-error {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            color: #ff6b6b;
+        }
+
+        .status-processing {
+            background: rgba(255, 212, 59, 0.2);
+            border: 1px solid rgba(255, 212, 59, 0.3);
+            color: #ffd43b;
+        }
+
+        .upload-history {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 16px;
+            margin-top: 2rem;
+            overflow: hidden;
+        }
+
+        .history-table {
+            width: 100%;
+            color: white;
+        }
+
+        .history-table th {
+            background: rgba(0, 212, 255, 0.1);
+            border: none;
+            color: #00d4ff;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+        }
+
+        .history-table td {
+            border: none;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .history-table tbody tr:hover {
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #5b73ff);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #51cf66, #40c057);
+            color: white;
+        }
+
+        .btn-outline {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+        }
+
+        .btn-outline:hover {
+            background: rgba(0, 212, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .loading-spinner {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            color: #00d4ff;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 212, 255, 0.3);
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            max-width: 400px;
+        }
+
+        .toast-success {
+            background: rgba(81, 207, 102, 0.9);
+            border: 1px solid #51cf66;
+        }
+
+        .toast-error {
+            background: rgba(255, 107, 107, 0.9);
+            border: 1px solid #ff6b6b;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .upload-container {
+                margin: 1rem;
+                padding: 0;
+            }
+            
+            .upload-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                    <h4 style="margin: 0;">HealthBridge</h4>
+                </div>
+                <small>Doctor Portal</small>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
+                <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
+                <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
+                <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
+                <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
+                <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
+                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="top-navbar">
+                <div>
+                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5><i class="fas fa-upload"></i> Upload FHIR Bundle</h5>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="upload-container">
+                    <div class="upload-header">
+                        <div>
+                            <h2 class="upload-title">
+                                <i class="fas fa-cloud-upload-alt"></i> FHIR R4 Bundle Upload
+                            </h2>
+                            <p style="color: rgba(255, 255, 255, 0.7); margin: 0;">Advanced Healthcare Interoperability Resource Upload</p>
+                        </div>
+                        <a href="/fhir/" class="btn btn-outline">
+                            <i class="fas fa-arrow-left"></i> Back to FHIR
+                        </a>
+                    </div>
+
+                    <!-- Drag and Drop Zone -->
+                    <div class="dropzone" id="dropzone">
+                        <i class="fas fa-cloud-upload-alt dropzone-icon"></i>
+                        <h3 style="color: white; margin-bottom: 1rem;">Drop FHIR Bundle Here</h3>
+                        <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 1.5rem;">
+                            Drag and drop your FHIR R4 Bundle (JSON/XML) or click to browse
+                        </p>
+                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                            <i class="fas fa-folder-open"></i> Browse Files
+                        </button>
+                        <input type="file" id="fileInput" accept=".json,.xml" style="display: none;">
+                        <div style="margin-top: 1rem; font-size: 0.85rem; color: rgba(255, 255, 255, 0.5);">
+                            Supported formats: JSON, XML | Max size: 10MB
+                        </div>
+                    </div>
+
+                    <!-- Status Display -->
+                    <div id="statusDisplay" style="margin-top: 1rem; text-align: center; display: none;"></div>
+
+                    <!-- Loading Spinner -->
+                    <div id="loadingSpinner" class="loading-spinner">
+                        <div class="spinner"></div>
+                        <span style="margin-left: 1rem;">Processing FHIR Bundle...</span>
+                    </div>
+
+                    <!-- Preview Panel -->
+                    <div id="previewPanel" class="preview-panel">
+                        <div class="preview-header">
+                            <h4 style="margin: 0; color: #00d4ff;">
+                                <i class="fas fa-eye"></i> Bundle Preview
+                            </h4>
+                            <div>
+                                <button class="btn btn-success" id="uploadBtn" onclick="uploadBundle()">
+                                    <i class="fas fa-upload"></i> Upload Bundle
+                                </button>
+                                <button class="btn btn-outline" onclick="clearPreview()">
+                                    <i class="fas fa-times"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div class="preview-content" id="previewContent"></div>
+                    </div>
+
+                    <!-- Upload History -->
+                    <div class="upload-history">
+                        <div class="preview-header">
+                            <h4 style="margin: 0; color: #00d4ff;">
+                                <i class="fas fa-history"></i> Upload History
+                            </h4>
+                            <button class="btn btn-outline" onclick="refreshHistory()">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table class="history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bundle ID</th>
+                                        <th>Type</th>
+                                        <th>Entries</th>
+                                        <th>Upload Date</th>
+                                        <th>Uploaded By</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem;">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading upload history...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentBundle = null;
+        let dragCounter = 0;
+
+        // Initialize drag and drop
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+
+        // Drag and drop events
+        dropzone.addEventListener('dragenter', handleDragEnter);
+        dropzone.addEventListener('dragleave', handleDragLeave);
+        dropzone.addEventListener('dragover', handleDragOver);
+        dropzone.addEventListener('drop', handleDrop);
+
+        // File input change
+        fileInput.addEventListener('change', handleFileSelect);
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            dragCounter++;
+            dropzone.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                dropzone.classList.remove('dragover');
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            dragCounter = 0;
+            dropzone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        }
+
+        function processFile(file) {
+            // Validate file type
+            if (!file.name.match(/\.(json|xml)$/i)) {
+                showToast('Please select a JSON or XML file', 'error');
+                return;
+            }
+
+            // Validate file size (10MB limit)
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('File size must be less than 10MB', 'error');
+                return;
+            }
+
+            showStatus('Reading file...', 'processing');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    let bundleData;
+                    if (file.name.toLowerCase().endsWith('.json')) {
+                        bundleData = JSON.parse(e.target.result);
+                    } else {
+                        // For XML files, you'd need an XML parser
+                        showToast('XML parsing not implemented yet', 'error');
+                        return;
+                    }
+
+                    validateAndPreview(bundleData);
+                } catch (error) {
+                    showStatus('Invalid file format', 'error');
+                    showToast('Error parsing file: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function validateAndPreview(bundleData) {
+            showStatus('Validating FHIR bundle...', 'processing');
+
+            // Basic FHIR validation
+            const errors = [];
+            
+            if (bundleData.resourceType !== 'Bundle') {
+                errors.push('Resource type must be "Bundle"');
+            }
+            
+            if (!bundleData.id) {
+                errors.push('Bundle must have an id');
+            }
+            
+            if (!bundleData.type) {
+                errors.push('Bundle must have a type');
+            }
+            
+            if (!bundleData.entry || !Array.isArray(bundleData.entry)) {
+                errors.push('Bundle must have an entry array');
+            }
+
+            if (errors.length > 0) {
+                showStatus('Validation failed', 'error');
+                showToast('Validation errors: ' + errors.join(', '), 'error');
+                return;
+            }
+
+            // Store bundle and show preview
+            currentBundle = bundleData;
+            showPreview(bundleData);
+            showStatus('Bundle validated successfully', 'success');
+        }
+
+        function showPreview(bundleData) {
+            const previewPanel = document.getElementById('previewPanel');
+            const previewContent = document.getElementById('previewContent');
+            
+            let html = `
+                <div style="margin-bottom: 1.5rem;">
+                    <h5 style="color: #00d4ff; margin-bottom: 1rem;">Bundle Information</h5>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: rgba(0, 212, 255, 0.1); padding: 1rem; border-radius: 8px;">
+                            <strong>ID:</strong> ${bundleData.id}
+                        </div>
+                        <div style="background: rgba(0, 212, 255, 0.1); padding: 1rem; border-radius: 8px;">
+                            <strong>Type:</strong> ${bundleData.type}
+                        </div>
+                        <div style="background: rgba(0, 212, 255, 0.1); padding: 1rem; border-radius: 8px;">
+                            <strong>Entries:</strong> ${bundleData.entry ? bundleData.entry.length : 0}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (bundleData.entry && bundleData.entry.length > 0) {
+                html += '<h5 style="color: #00d4ff; margin-bottom: 1rem;">Resources</h5>';
+                
+                bundleData.entry.forEach((entry, index) => {
+                    const resource = entry.resource;
+                    if (resource) {
+                        const resourceIcon = getResourceIcon(resource.resourceType);
+                        html += `
+                            <div class="resource-item" onclick="toggleResourceDetails(${index})">
+                                <div class="resource-header">
+                                    <div>
+                                        <i class="${resourceIcon}" style="margin-right: 0.5rem;"></i>
+                                        <span class="resource-type">${resource.resourceType}</span>
+                                        ${resource.id ? `<span style="color: rgba(255,255,255,0.6); margin-left: 0.5rem;">(${resource.id})</span>` : ''}
+                                    </div>
+                                    <i class="fas fa-chevron-down" id="chevron-${index}"></i>
+                                </div>
+                                <div class="resource-details" id="details-${index}">
+                                    <pre class="json-viewer">${JSON.stringify(resource, null, 2)}</pre>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            previewContent.innerHTML = html;
+            previewPanel.style.display = 'block';
+        }
+
+        function getResourceIcon(resourceType) {
+            const icons = {
+                'Patient': 'fas fa-user',
+                'Condition': 'fas fa-heartbeat',
+                'Observation': 'fas fa-eye',
+                'Procedure': 'fas fa-procedures',
+                'Medication': 'fas fa-pills',
+                'Encounter': 'fas fa-hospital',
+                'Organization': 'fas fa-building'
+            };
+            return icons[resourceType] || 'fas fa-file-medical';
+        }
+
+        function toggleResourceDetails(index) {
+            const details = document.getElementById(`details-${index}`);
+            const chevron = document.getElementById(`chevron-${index}`);
+            
+            if (details.style.display === 'none' || !details.style.display) {
+                details.style.display = 'block';
+                chevron.classList.remove('fa-chevron-down');
+                chevron.classList.add('fa-chevron-up');
+            } else {
+                details.style.display = 'none';
+                chevron.classList.remove('fa-chevron-up');
+                chevron.classList.add('fa-chevron-down');
+            }
+        }
+
+        async function uploadBundle() {
+            if (!currentBundle) {
+                showToast('No bundle to upload', 'error');
+                return;
+            }
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            const originalText = uploadBtn.innerHTML;
+            uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+            uploadBtn.disabled = true;
+
+            try {
+                const response = await fetch('/fhir/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        bundle_data: currentBundle
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    showToast(result.message, 'success');
+                    clearPreview();
+                    refreshHistory();
+                } else {
+                    showToast(result.error || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                showToast('Network error: ' + error.message, 'error');
+            } finally {
+                uploadBtn.innerHTML = originalText;
+                uploadBtn.disabled = false;
+            }
+        }
+
+        function clearPreview() {
+            currentBundle = null;
+            document.getElementById('previewPanel').style.display = 'none';
+            document.getElementById('statusDisplay').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+        }
+
+        function showStatus(message, type) {
+            const statusDisplay = document.getElementById('statusDisplay');
+            const statusClass = type === 'success' ? 'status-success' : 
+                               type === 'error' ? 'status-error' : 'status-processing';
+            
+            statusDisplay.innerHTML = `<div class="status-indicator ${statusClass}">
+                <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'spinner fa-spin'}"></i>
+                ${message}
+            </div>`;
+            statusDisplay.style.display = 'block';
+        }
+
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                ${message}
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+
+        async function refreshHistory() {
+            const tableBody = document.getElementById('historyTableBody');
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+
+            try {
+                const response = await fetch('/fhir/history');
+                const data = await response.json();
+
+                if (data.bundles && data.bundles.length > 0) {
+                    tableBody.innerHTML = data.bundles.map(bundle => `
+                        <tr>
+                            <td><span style="font-family: monospace; background: rgba(0,212,255,0.1); padding: 0.25rem 0.5rem; border-radius: 4px;">${bundle.id}</span></td>
+                            <td>${bundle.type || 'N/A'}</td>
+                            <td>${bundle.entries || 0}</td>
+                            <td>${new Date(bundle.upload_date).toLocaleDateString()}</td>
+                            <td>${bundle.uploaded_by || 'Unknown'}</td>
+                            <td><span class="status-indicator status-${bundle.status === 'valid' ? 'success' : 'error'}">${bundle.status}</span></td>
+                            <td>
+                                <button class="btn btn-outline" onclick="viewBundle('${bundle.id}')" style="padding: 0.25rem 0.75rem; font-size: 0.8rem;">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem;">No upload history found</td></tr>';
+                }
+            } catch (error) {
+                tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #ff6b6b; padding: 2rem;">Error loading history</td></tr>';
+            }
+        }
+
+        function viewBundle(bundleId) {
+            window.open(`/fhir/bundle/${bundleId}`, '_blank');
+        }
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const sidebar = document.querySelector('.dashboard-sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        // Load history on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshHistory();
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
