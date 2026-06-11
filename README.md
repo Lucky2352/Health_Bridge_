@@ -249,10 +249,10 @@ See LICENSE file for details.
 - Open-source contributors and healthcare technologists
 
 ## Contact & Support
-Maintainer: Aaditya Siddharth Bansod
+Maintainer: Lucky Yadav
 
-📧 Email: aadityasbansod@gmail.com
+📧 Email:luckyyadav1586@gmail.com
 
-🔗 LinkedIn: [https://linkedin.com/in/yourprofile](https://www.linkedin.com/in/aaditya-siddharth-bansod-889590333/)
+🔗 LinkedIn: [https://linkedin.com/in/yourprofile](https://www.linkedin.com/in/lucky-yadav-75b35a32a/)
 
 HealthBridge aims to modernize healthcare while respecting traditional medical systems.
