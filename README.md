@@ -253,6 +253,6 @@ Maintainer: Lucky Yadav
 
 📧 Email:luckyyadav1586@gmail.com
 
-🔗 LinkedIn: [https://linkedin.com/in/yourprofile](https://www.linkedin.com/in/lucky-yadav-75b35a32a/)
+🔗 LinkedIn: [LinkedIn](https://www.linkedin.com/in/lucky-yadav-75b35a32a/)
 
 HealthBridge aims to modernize healthcare while respecting traditional medical systems.
