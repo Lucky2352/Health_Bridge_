@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose Account Type - HealthBridge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/enhanced_auth.css">
+    <style>
+        .role-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.2rem;
+            margin: 1.5rem 0;
+        }
+        .role-card {
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 1.5rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255,255,255,0.04);
+        }
+        .role-card:hover { border-color: #00d4ff; background: rgba(0,212,255,0.08); }
+        .role-card.selected { border-color: #00d4ff; background: rgba(0,212,255,0.15); }
+        .role-card i { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+        .role-card.doctor i { color: #00d4ff; }
+        .role-card.patient i { color: #51cf66; }
+        .role-card h4 { color: white; margin: 0 0 0.4rem; font-size: 1rem; }
+        .role-card p { color: rgba(255,255,255,0.55); font-size: 0.8rem; margin: 0; }
+        .google-info {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: rgba(255,255,255,0.8);
+            font-size: 0.9rem;
+        }
+        .google-info svg { flex-shrink: 0; }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <video class="background-video" autoplay muted loop>
+        <source src="/static/login-bg-video.mp4" type="video/mp4">
+    </video>
+    <div class="video-overlay"></div>
+
+    <div class="auth-container">
+        <div class="auth-card show">
+            <div class="auth-header">
+                <img src="/static/logo.png" alt="HealthBridge" class="auth-logo">
+                <h1>HealthBridge</h1>
+                <p>One last step to complete your registration</p>
+            </div>
+
+            <div class="auth-form">
+                <h3>Choose Your Account Type</h3>
+
+                <div class="google-info">
+                    <svg viewBox="0 0 24 24" width="22" height="22">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Signing in as <strong style="color:white;margin:0 4px;">{{ full_name }}</strong> ({{ email }})
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" id="roleForm">
+                    <input type="hidden" name="role" id="roleInput" value="">
+
+                    <div class="role-cards">
+                        <div class="role-card doctor" onclick="selectRole('doctor', this)">
+                            <i class="fas fa-user-md"></i>
+                            <h4>Doctor</h4>
+                            <p>Medical professional managing patient records & diagnoses</p>
+                        </div>
+                        <div class="role-card patient" onclick="selectRole('patient', this)">
+                            <i class="fas fa-user"></i>
+                            <h4>Patient</h4>
+                            <p>Access your personal health records & appointments</p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="continueBtn" disabled
+                            style="opacity:0.5;cursor:not-allowed;">
+                        Continue
+                    </button>
+                </form>
+
+                <div class="auth-footer" style="margin-top:1rem;">
+                    <p><a href="/enhanced/login">← Back to login</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function selectRole(role, el) {
+            document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            document.getElementById('roleInput').value = role;
+            const btn = document.getElementById('continueBtn');
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        }
+
+        document.getElementById('roleForm').addEventListener('submit', function(e) {
+            if (!document.getElementById('roleInput').value) {
+                e.preventDefault();
+                alert('Please select an account type.');
+            }
+        });
+    </script>
+</body>
+</html>
