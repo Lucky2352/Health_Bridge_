@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_login import LoginManager, login_required, current_user
 from enhanced_routes import enhanced_auth_bp
@@ -12,7 +15,7 @@ from fhir_codesystem import FHIRCodeSystem
 from fhir_conceptmap import ConceptMapper
 from jwt_auth import jwt_required
 from auth_service import AuthService
-from icd11_api import search_icd11, configure_icd_api
+from icd11_api import search_icd11, suggest_diseases, configure_icd_api
 import uuid
 import re
 import os
@@ -23,7 +26,10 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.static_folder = 'static'
 app.template_folder = 'templates'
-app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
+app.secret_key = os.getenv('SECRET_KEY', 'hb-super-secret-key-healthbridge-2024-xK9mP2qR')
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 # Initialize Flask-Login
 login_manager = LoginManager()
@@ -71,19 +77,39 @@ configure_icd_api(
 def search_icd():
     query = request.args.get('q', '').strip()
     format_type = request.args.get('format', '').lower()
-    
+
     if not query:
         return jsonify({'error': 'Query parameter q is required'}), 400
-    
     if len(query) < 2:
         return jsonify({'error': 'Query must be at least 2 characters'}), 400
-    
+
     results = search_icd11(query)
-    
+
     if format_type == 'fhir':
         return jsonify(FHIRCodeSystem.create_icd11_codesystem(results))
-    
+
     return jsonify(results)
+
+
+@app.route('/icd11/llm-search')
+@login_required
+def llm_search_icd():
+    query = request.args.get('q', '').strip()
+    if not query or len(query) < 2:
+        return jsonify({'error': 'Query must be at least 2 characters'}), 400
+    results = search_icd11(query)
+    return jsonify({'query': query, 'source': 'llm', 'results': results})
+
+
+@app.route('/icd11/suggest')
+@login_required
+def icd11_suggest():
+    """Live autocomplete: returns disease name suggestions with ICD-11 codes as the doctor types."""
+    prefix = request.args.get('q', '').strip()
+    if not prefix:
+        return jsonify([])
+    suggestions = suggest_diseases(prefix)
+    return jsonify(suggestions)
 
 @app.route('/namaste/status')
 @login_required

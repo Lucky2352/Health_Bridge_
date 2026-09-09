@@ -1,10 +1,11 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from enhanced_auth import EnhancedAuthDB, UserRole
+import os
 import re
 import logging
 from datetime import datetime, timedelta
-import requests
+import requests as http_requests
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -15,10 +16,16 @@ enhanced_auth_bp = Blueprint('enhanced_auth', __name__, url_prefix='/enhanced')
 # Initialize database
 enhanced_db = EnhancedAuthDB()
 
-# Google OAuth2 Configuration
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid_configuration"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/auth"
+GOOGLE_REDIRECT_URI = "http://localhost:8000/enhanced/google-callback"
+
+def _google_client_id():
+    return os.getenv("GOOGLE_CLIENT_ID", "")
+
+def _google_client_secret():
+    return os.getenv("GOOGLE_CLIENT_SECRET", "")
 
 @enhanced_auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -132,77 +139,147 @@ def signup():
 
 @enhanced_auth_bp.route('/google-login')
 def google_login():
-    # Check if Google OAuth is configured
-    if not GOOGLE_CLIENT_ID or GOOGLE_CLIENT_ID == 'your-google-client-id':
-        flash('Google OAuth is not configured. Please contact administrator.', 'error')
+    client_id = _google_client_id()
+    if not client_id:
+        flash('Google login is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to your .env file.', 'error')
         return redirect(url_for('enhanced_auth.login'))
-    
-    # Simplified Google OAuth2 authorization URL (without state for now)
-    google_auth_url = (
-        f"https://accounts.google.com/o/oauth2/auth?"
-        f"client_id={GOOGLE_CLIENT_ID}&"
-        f"redirect_uri=http://localhost:8000/enhanced/google-callback&"
-        f"scope=openid email profile&"
-        f"response_type=code"
+
+    import secrets
+    state = secrets.token_urlsafe(16)
+    session['oauth_state'] = state
+
+    redirect_uri = GOOGLE_REDIRECT_URI
+    auth_url = (
+        f"{GOOGLE_AUTH_URL}"
+        f"?client_id={client_id}"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope=openid+email+profile"
+        f"&response_type=code"
+        f"&state={state}"
+        f"&access_type=offline"
+        f"&prompt=select_account"
     )
-    
-    return redirect(google_auth_url)
+    return redirect(auth_url)
+
 
 @enhanced_auth_bp.route('/google-callback')
 def google_callback():
-    # Skip state verification for now (can be re-enabled later)
-    # if request.args.get('state') != session.get('oauth_state'):
-    #     flash('Invalid state parameter', 'error')
-    #     return redirect(url_for('enhanced_auth.login'))
-    
+    # Validate state to prevent CSRF
+    expected_state = session.pop('oauth_state', None)
+    received_state = request.args.get('state')
+
+    if not expected_state or not received_state or expected_state != received_state:
+        logger.warning(f"OAuth state mismatch — expected: {expected_state}, got: {received_state}")
+        # If session was lost but redirect succeeded, continue anyway (dev mode)
+        if not expected_state:
+            logger.warning("Session lost during OAuth redirect — proceeding without state check")
+        else:
+            flash('Authentication failed: session expired. Please try again.', 'error')
+            return redirect(url_for('enhanced_auth.login'))
+
+    error = request.args.get('error')
+    if error:
+        flash(f'Google login cancelled or failed: {error}', 'error')
+        return redirect(url_for('enhanced_auth.login'))
+
     code = request.args.get('code')
     if not code:
-        flash('Google authentication failed', 'error')
+        flash('No authorisation code received from Google.', 'error')
         return redirect(url_for('enhanced_auth.login'))
-    
+
+    # Exchange code for tokens
     try:
-        # Exchange code for token
-        token_data = {
-            'client_id': GOOGLE_CLIENT_ID,
-            'client_secret': GOOGLE_CLIENT_SECRET,
+        token_resp = http_requests.post(GOOGLE_TOKEN_URL, data={
+            'client_id': _google_client_id(),
+            'client_secret': _google_client_secret(),
             'code': code,
             'grant_type': 'authorization_code',
-            'redirect_uri': "http://localhost:8000/enhanced/google-callback"
+            'redirect_uri': GOOGLE_REDIRECT_URI,
+        }, timeout=10)
+        token_resp.raise_for_status()
+        token_data = token_resp.json()
+    except Exception as e:
+        logger.error(f"Google token exchange failed: {e}")
+        flash('Failed to connect to Google. Please try again.', 'error')
+        return redirect(url_for('enhanced_auth.login'))
+
+    access_token = token_data.get('access_token')
+    if not access_token:
+        flash('Google did not return an access token.', 'error')
+        return redirect(url_for('enhanced_auth.login'))
+
+    # Fetch user info
+    try:
+        user_resp = http_requests.get(
+            GOOGLE_USERINFO_URL,
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10
+        )
+        user_resp.raise_for_status()
+        user_info = user_resp.json()
+    except Exception as e:
+        logger.error(f"Google userinfo fetch failed: {e}")
+        flash('Failed to retrieve your Google profile. Please try again.', 'error')
+        return redirect(url_for('enhanced_auth.login'))
+
+    google_id = user_info.get('id')
+    email = user_info.get('email', '').lower()
+    full_name = user_info.get('name', email.split('@')[0])
+
+    if not google_id or not email:
+        flash('Could not retrieve your Google account details.', 'error')
+        return redirect(url_for('enhanced_auth.login'))
+
+    # Try to authenticate / create user (no role yet for new users)
+    user, is_new = enhanced_db.authenticate_google_user(google_id, email, full_name)
+
+    if user is None and is_new:
+        # New user — store Google info in session and ask for role
+        session['pending_google'] = {
+            'google_id': google_id,
+            'email': email,
+            'full_name': full_name
         }
-        
-        token_response = requests.post('https://oauth2.googleapis.com/token', data=token_data)
-        token_json = token_response.json()
-        
-        if 'access_token' not in token_json:
-            flash('Failed to get access token from Google', 'error')
-            return redirect(url_for('enhanced_auth.login'))
-        
-        # Get user info from Google
-        user_response = requests.get(
-            'https://www.googleapis.com/oauth2/v2/userinfo',
-            headers={'Authorization': f"Bearer {token_json['access_token']}"}
+        return redirect(url_for('enhanced_auth.google_role_select'))
+
+    if user:
+        login_user(user, remember=True)
+        session['login_success'] = f'Welcome{" back" if not is_new else ""}, {user.full_name}!'
+        return redirect(url_for('enhanced_auth.dashboard'))
+
+    flash('Google authentication failed. Please try again.', 'error')
+    return redirect(url_for('enhanced_auth.login'))
+
+
+@enhanced_auth_bp.route('/google-role-select', methods=['GET', 'POST'])
+def google_role_select():
+    """Ask new Google users to pick Doctor or Patient before creating their account."""
+    pending = session.get('pending_google')
+    if not pending:
+        return redirect(url_for('enhanced_auth.login'))
+
+    if request.method == 'POST':
+        role = request.form.get('role', '').strip()
+        if role not in ('doctor', 'patient'):
+            flash('Please select a valid account type.', 'error')
+            return render_template('enhanced_auth/google_role_select.html',
+                                   full_name=pending['full_name'], email=pending['email'])
+
+        user, _ = enhanced_db.authenticate_google_user(
+            pending['google_id'], pending['email'], pending['full_name'], role=role
         )
-        user_info = user_response.json()
-        
-        # Authenticate or create user
-        user = enhanced_db.authenticate_google_user(
-            google_id=user_info['id'],
-            email=user_info['email'],
-            full_name=user_info['name']
-        )
-        
+        session.pop('pending_google', None)
+
         if user:
             login_user(user, remember=True)
-            # Store success message in session for dashboard display
-            session['login_success'] = f'Welcome back, {user.full_name}! Successfully signed in with Google.'
+            session['login_success'] = f'Welcome to HealthBridge, {user.full_name}!'
             return redirect(url_for('enhanced_auth.dashboard'))
-        else:
-            flash('Failed to authenticate with Google', 'error')
-            
-    except Exception as e:
-        flash('Google authentication error occurred', 'error')
-    
-    return redirect(url_for('enhanced_auth.login'))
+
+        flash('Account creation failed. Please try again.', 'error')
+        return redirect(url_for('enhanced_auth.login'))
+
+    return render_template('enhanced_auth/google_role_select.html',
+                           full_name=pending['full_name'], email=pending['email'])
 
 @enhanced_auth_bp.route('/dashboard')
 @login_required

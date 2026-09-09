@@ -1,109 +1,126 @@
-import requests
+import os
 import json
-from datetime import datetime, timedelta
+import csv
+import logging
+import functools
 
-class WHO_ICD_API:
-    def __init__(self, client_id=None, client_secret=None):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.token_url = "https://icdaccessmanagement.who.int/connect/token"
-        self.base_url = "https://id.who.int/icd"
-        self.access_token = None
-        self.token_expires = None
-    
-    def get_access_token(self):
-        """Get OAuth2 access token from WHO"""
-        if not self.client_id or not self.client_secret:
-            return None
-            
-        if self.access_token and self.token_expires and datetime.now() < self.token_expires:
-            return self.access_token
-        
-        payload = {
-            'client_id': self.client_id,
-            'client_secret': self.client_secret,
-            'scope': 'icdapi_access',
-            'grant_type': 'client_credentials'
-        }
-        
-        try:
-            response = requests.post(self.token_url, data=payload, timeout=10)
-            if response.status_code == 200:
-                token_data = response.json()
-                self.access_token = token_data['access_token']
-                self.token_expires = datetime.now() + timedelta(seconds=token_data['expires_in'] - 60)
-                return self.access_token
-        except Exception:
-            pass
-        
-        return None
-    
-    def search_icd11(self, keyword):
-        """Search ICD-11 using WHO API"""
-        if not keyword or len(keyword.strip()) < 2:
-            return []
-        
-        token = self.get_access_token()
-        if not token:
-            return []
-        
-        headers = {
-            'Authorization': f'Bearer {token}',
-            'Accept': 'application/json',
-            'API-Version': 'v2',
-            'Accept-Language': 'en'
-        }
-        
-        # Search in ICD-11 MMS
-        search_url = f"{self.base_url}/release/11/2022-02/mms/search"
-        params = {
-            'q': keyword.strip(),
-            'subtreeFilterUsesFoundationDescendants': 'false',
-            'includeKeywordResult': 'true',
-            'useFlexisearch': 'false',
-            'flatResults': 'true'
-        }
-        
-        try:
-            response = requests.get(search_url, headers=headers, params=params, timeout=15)
-            
-            if response.status_code == 200:
-                data = response.json()
-                results = []
-                
-                for entity in data.get('destinationEntities', [])[:10]:
-                    # Extract code
-                    code = entity.get('theCode', '')
-                    
-                    # Extract title
-                    title = entity.get('title', {})
-                    if isinstance(title, dict):
-                        name = title.get('@value', '')
-                    else:
-                        name = str(title) if title else ''
-                    
-                    if code and name:
-                        results.append({
-                            'code': code,
-                            'name': name,
-                            'category': 'ICD-11'
-                        })
-                
-                return results
-        
-        except Exception:
-            pass
-        
+logger = logging.getLogger(__name__)
+
+MODEL = 'gemini-3.5-flash-lite'   # fastest available model
+
+# ── In-memory cache (survives for the lifetime of the Flask process) ──────────
+@functools.lru_cache(maxsize=512)
+def _cached_call(prompt: str) -> str:
+    """Cached Gemini call — same prompt never hits the API twice."""
+    api_key = os.getenv('GEMINI_API_KEY')
+    if not api_key:
+        return ''
+    try:
+        from google import genai
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            c = genai.Client(api_key=api_key)
+            r = c.models.generate_content(model=MODEL, contents=prompt)
+        return r.text or ''
+    except Exception as e:
+        logger.error(f"Gemini error: {e}")
+        return ''
+
+
+def _parse_json(text: str) -> list:
+    text = text.strip()
+    if '```' in text:
+        for part in text.split('```'):
+            part = part.strip().lstrip('json').strip()
+            if part.startswith('['):
+                text = part
+                break
+    start, end = text.find('['), text.rfind(']') + 1
+    if start != -1 and end > start:
+        return json.loads(text[start:end])
+    return json.loads(text)
+
+
+def _namaste_ctx() -> str:
+    f = 'namaste_codes.csv'
+    if not os.path.exists(f):
+        return ''
+    try:
+        with open(f, 'r', encoding='utf-8') as fh:
+            return '\n'.join(
+                f"{r['code']}|{r['name']}|{r['system']}"
+                for r in csv.DictReader(fh)
+            )
+    except Exception:
+        return ''
+
+
+# Build namaste context once at import time
+_NAMASTE = _namaste_ctx()
+
+
+def search_icd11(keyword: str) -> list:
+    """Return ICD-11 MMS codes for any disease/condition via LLM (cached)."""
+    if not keyword or not keyword.strip():
         return []
 
-# Global instance - will be configured with your credentials
+    kw = keyword.strip().lower()
+
+    prompt = (
+        f"You are a WHO ICD-11 MMS expert. Also know: Jwara=MG26, Kasa=MD12.0, "
+        f"Amavata=FA20.0, Prameha=5A11, Shwasa=CA23.0, Gridhrasi=ME84.2, "
+        f"Humma=MG26, Sual=MD12.0, Ziabetus=5A11, Suram=MG26, Irumal=MD12.0.\n"
+        f"NAMASTE: {_NAMASTE}\n"
+        f"Return 5 ICD-11 MMS codes for: \"{kw}\"\n"
+        f"Output ONLY JSON array, no markdown:\n"
+        f'[{{"code":"CODE","name":"Name","category":"ICD-11"}}]'
+    )
+
+    text = _cached_call(prompt)
+    if not text:
+        return []
+    try:
+        return [r for r in _parse_json(text) if r.get('code') and r.get('name')]
+    except Exception as e:
+        logger.error(f"search_icd11 parse error '{kw}': {e}")
+        return []
+
+
+def suggest_diseases(prefix: str) -> list:
+    """Return disease name suggestions matching prefix (cached, works from 1 char)."""
+    if not prefix or not prefix.strip():
+        return []
+
+    p = prefix.strip().lower()
+
+    prompt = (
+        f"Medical autocomplete. List 10 diseases/conditions/symptoms that "
+        f"START WITH or CONTAIN \"{p}\". Include modern, Ayurvedic, Unani, Siddha terms. "
+        f"Include ICD-11 MMS code for each. "
+        f"Output ONLY JSON array, no markdown:\n"
+        f'[{{"name":"Name","icd_code":"CODE","system":"Modern|Ayurveda|Unani|Siddha"}}]'
+    )
+
+    text = _cached_call(prompt)
+    if not text:
+        return []
+    try:
+        return [r for r in _parse_json(text) if r.get('name') and r.get('icd_code')]
+    except Exception as e:
+        logger.error(f"suggest_diseases parse error '{p}': {e}")
+        return []
+
+
+# ── Legacy compatibility ──────────────────────────────────────────────────────
+class WHO_ICD_API:
+    def __init__(self, client_id=None, client_secret=None):
+        pass
+    def search_icd11(self, keyword):
+        return search_icd11(keyword)
+
 icd_api = WHO_ICD_API()
 
-def configure_icd_api(client_id, client_secret):
-    """Configure WHO ICD API with your credentials"""
+def configure_icd_api(client_id=None, client_secret=None):
     global icd_api
-    icd_api = WHO_ICD_API(client_id, client_secret)
-
-def search_icd11(keyword):
-    """Search ICD-11 codes from WHO API only"""
-    return icd_api.search_icd11(keyword)
+    icd_api = WHO_ICD_API()

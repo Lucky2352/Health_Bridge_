@@ -210,62 +210,70 @@ class EnhancedAuthDB:
         logger.warning(f"Login failed for: {username_or_email}")
         return None
     
-    def authenticate_google_user(self, google_id, email, full_name):
+    def authenticate_google_user(self, google_id, email, full_name, role=None):
+        """
+        Find or create a user via Google OAuth.
+        - If user already exists (by google_id or email): log them in.
+        - If new user: create with the given role (doctor/patient).
+        Returns (user_object, is_new_user) tuple.
+        """
         conn = sqlite3.connect(self.db_file)
         conn.row_factory = sqlite3.Row
-        
-        # Check if user exists with Google ID
-        cursor = conn.execute('''
-            SELECT * FROM enhanced_users 
-            WHERE google_id = ? AND is_active = 1
-        ''', (google_id,))
+
+        # 1. Existing user by Google ID
+        cursor = conn.execute(
+            'SELECT * FROM enhanced_users WHERE google_id = ? AND is_active = 1',
+            (google_id,)
+        )
         user_row = cursor.fetchone()
-        
-        if not user_row:
-            # Check if user exists with email
-            cursor = conn.execute('''
-                SELECT * FROM enhanced_users 
-                WHERE email = ? AND is_active = 1
-            ''', (email,))
-            user_row = cursor.fetchone()
-            
-            if user_row:
-                # Link Google account to existing user
-                conn.execute('''
-                    UPDATE enhanced_users 
-                    SET google_id = ? 
-                    WHERE id = ?
-                ''', (google_id, user_row['id']))
-                conn.commit()
-            else:
-                # Create new user with doctor role (same as signup)
-                username = email.split('@')[0]
-                counter = 1
-                original_username = username
-                
-                while self.user_exists(username):
-                    username = f"{original_username}{counter}"
-                    counter += 1
-                
-                conn.execute('''
-                    INSERT INTO enhanced_users (username, email, full_name, role, google_id)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (username, email, full_name, UserRole.DOCTOR.value, google_id))
-                conn.commit()
-                
-                cursor = conn.execute('''
-                    SELECT * FROM enhanced_users 
-                    WHERE google_id = ?
-                ''', (google_id,))
-                user_row = cursor.fetchone()
-        
-        conn.close()
-        
+
         if user_row:
+            conn.close()
             self.update_last_login(user_row['id'])
-            return self._create_user_object(user_row)
-        
-        return None
+            return self._create_user_object(user_row), False
+
+        # 2. Existing user by email — link Google account
+        cursor = conn.execute(
+            'SELECT * FROM enhanced_users WHERE email = ? AND is_active = 1',
+            (email,)
+        )
+        user_row = cursor.fetchone()
+
+        if user_row:
+            conn.execute(
+                'UPDATE enhanced_users SET google_id = ? WHERE id = ?',
+                (google_id, user_row['id'])
+            )
+            conn.commit()
+            conn.close()
+            self.update_last_login(user_row['id'])
+            return self._create_user_object(user_row), False
+
+        conn.close()
+
+        # 3. Brand new user — role must be provided
+        if not role or role not in ('doctor', 'patient'):
+            return None, True  # Signal: needs role selection
+
+        # Build unique username from email prefix
+        base = email.split('@')[0]
+        username = base
+        counter = 1
+        while self.user_exists(username):
+            username = f"{base}{counter}"
+            counter += 1
+
+        user_id = self.create_user(
+            username=username,
+            email=email,
+            full_name=full_name,
+            password=None,
+            role=role,
+            google_id=google_id
+        )
+
+        user = self.get_user_by_id(user_id)
+        return user, True
     
     def get_user_by_id(self, user_id):
         conn = sqlite3.connect(self.db_file)
