@@ -8,239 +8,295 @@
     <link rel="stylesheet" href="/static/futuristic-dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+    .diagnosis-container {
+        max-width: 900px;
+        margin: 2rem auto;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 2rem 2.25rem;
+        box-shadow: 0 8px 25px rgba(15, 23, 42, 0.10);
+    }
+
+    .diagnosis-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .diagnosis-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+    }
+
+    .diagnosis-title i {
+        color: #2563eb;
+        margin-right: 0.5rem;
+    }
+
+    .back-btn {
+        padding: 0.55rem 1rem;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        color: #334155;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: all 0.2s ease;
+    }
+
+    .back-btn:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+        transform: translateX(-2px);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+        position: relative;
+        margin-bottom: 1.35rem;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.55rem;
+        color: #172033;
+        font-weight: 700;
+        font-size: 0.86rem;
+    }
+
+    .form-control {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.75rem 0.95rem;
+        background: #f8fafc;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 9px;
+        color: #0f172a;
+        font-size: 0.92rem;
+        font-family: 'Inter', sans-serif;
+        transition: all 0.2s ease;
+        outline: none;
+    }
+
+    .form-control:hover {
+        border-color: #94a3b8;
+        background: #ffffff;
+    }
+
+    .form-control:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.13);
+        background: #ffffff;
+        color: #0f172a;
+    }
+
+    .form-control::placeholder {
+        color: #64748b;
+        opacity: 1;
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 110px;
+        line-height: 1.5;
+    }
+
+    .form-text {
+        font-size: 0.76rem;
+        color: #64748b;
+        margin-top: 0.4rem;
+        line-height: 1.4;
+    }
+
+    .form-text i {
+        color: #2563eb;
+        margin-right: 0.2rem;
+    }
+
+    /* Buttons */
+
+    .btn {
+        padding: 0.7rem 1.25rem;
+        border: none;
+        border-radius: 9px;
+        font-weight: 700;
+        font-size: 0.86rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        margin-right: 0.75rem;
+    }
+
+    .btn-success {
+        background: #2563eb;
+        color: #ffffff;
+        border: 1px solid #2563eb;
+    }
+
+    .btn-success:hover {
+        background: #1d4ed8;
+        border-color: #1d4ed8;
+        box-shadow: 0 5px 15px rgba(37, 99, 235, 0.25);
+        transform: translateY(-1px);
+    }
+
+    .btn-success:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .btn-outline {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+    }
+
+    .btn-outline:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #0f172a;
+    }
+
+    /* Form action area */
+
+    .form-actions {
+        display: flex;
+        align-items: center;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 2px solid #e2e8f0;
+    }
+
+    /* Alerts */
+
+    .alert {
+        padding: 0.85rem 1rem;
+        border-radius: 9px;
+        margin-top: 1.25rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-size: 0.875rem;
+        border: 1px solid;
+    }
+
+    .alert-success {
+        background: #ecfdf5;
+        border-color: #86efac;
+        color: #166534;
+    }
+
+    .alert-success i {
+        color: #16a34a;
+    }
+
+    .alert-danger {
+        background: #fef2f2;
+        border-color: #fca5a5;
+        color: #991b1b;
+    }
+
+    .alert-danger i {
+        color: #dc2626;
+    }
+
+    /* Validation */
+
+    .validation-feedback {
+        font-size: 0.75rem;
+        margin-top: 0.4rem;
+        padding: 0.4rem 0.55rem;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+
+    .is-valid {
+        border-color: #16a34a !important;
+    }
+
+    .is-invalid {
+        border-color: #dc2626 !important;
+    }
+
+    .is-valid + .form-text + .validation-feedback {
+        color: #166534;
+        background: #ecfdf5;
+    }
+
+    .is-invalid + .form-text + .validation-feedback {
+        color: #991b1b;
+        background: #fef2f2;
+    }
+
+    /* Required field indicator */
+
+    .form-label::after {
+        content: "";
+    }
+
+    /* Mobile */
+
+    @media (max-width: 768px) {
+
         .diagnosis-container {
-            max-width: 800px;
-            margin: 2rem auto;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            border-radius: 20px;
-            padding: 3rem;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            animation: fadeInUp 0.8s ease-out;
-            position: relative;
+            margin: 1rem;
+            padding: 1.25rem;
+            border-radius: 12px;
         }
 
         .diagnosis-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
-        }
-
-        .diagnosis-title {
-            font-size: 2rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #00d4ff, #5b73ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 0;
-        }
-
-        .back-btn {
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 25px;
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .back-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.1);
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
         }
 
         .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group {
-            position: relative;
+            grid-template-columns: 1fr;
+            gap: 0;
         }
 
         .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: rgba(255, 255, 255, 0.8);
-            font-weight: 500;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 14px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            color: white;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            font-family: 'Inter', sans-serif;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: #00d4ff;
-            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1), 0 0 20px rgba(0, 212, 255, 0.2);
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        textarea.form-control {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .form-text {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.6);
-            margin-top: 0.5rem;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 25px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-right: 1rem;
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #51cf66, #40c057);
-            color: white;
-        }
-
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(81, 207, 102, 0.4);
-            background: linear-gradient(135deg, #40c057, #51cf66);
-        }
-
-        .btn-outline {
-            background: rgba(0, 212, 255, 0.1);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            color: #00d4ff;
-        }
-
-        .btn-outline:hover {
-            background: rgba(0, 212, 255, 0.2);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
+            grid-column: auto;
         }
 
         .form-actions {
-            display: flex;
-            align-items: center;
-            margin-top: 2.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid rgba(0, 212, 255, 0.2);
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: stretch;
         }
 
-        .alert {
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            margin-top: 1.5rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+        .btn {
+            width: 100%;
+            margin-right: 0;
         }
-
-        .alert-success {
-            background: rgba(81, 207, 102, 0.1);
-            border: 1px solid rgba(81, 207, 102, 0.3);
-            color: #51cf66;
-        }
-
-        .alert-danger {
-            background: rgba(255, 107, 107, 0.1);
-            border: 1px solid rgba(255, 107, 107, 0.3);
-            color: #ff6b6b;
-        }
-
-        .validation-feedback {
-            font-size: 0.8rem;
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-
-        .is-valid + .validation-feedback {
-            color: #51cf66;
-            background: rgba(81, 207, 102, 0.1);
-            border: 1px solid rgba(81, 207, 102, 0.2);
-        }
-
-        .is-invalid + .validation-feedback {
-            color: #ff6b6b;
-            background: rgba(255, 107, 107, 0.1);
-            border: 1px solid rgba(255, 107, 107, 0.2);
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .diagnosis-container {
-                margin: 1rem;
-                padding: 2rem 1.5rem;
-            }
-            
-            .diagnosis-header {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-            
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-            
-            .form-actions {
-                flex-direction: column;
-                gap: 1rem;
-            }
-        }
+    }
     </style>
 </head>
 <body>
@@ -257,12 +313,14 @@
                 <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
                 <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
                 <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/treatments/" class="nav-link"><i class="fas fa-heartbeat"></i> Treatment Plans</a>
+                <a href="/appointments/" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
                 <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
                 <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
                 <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
                 <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
                 <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
-                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0.75rem 0;">
                 <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </nav>
         </div>

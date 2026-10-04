@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from enhanced_auth import EnhancedAuthDB, UserRole
+from diagnosis_models import DiagnosisDatabase
 import os
 import re
 import logging
 from datetime import datetime, timedelta
+from functools import wraps
 import requests as http_requests
 
 # Configure logging
@@ -15,6 +17,10 @@ enhanced_auth_bp = Blueprint('enhanced_auth', __name__, url_prefix='/enhanced')
 
 # Initialize database
 enhanced_db = EnhancedAuthDB()
+
+# Shared across requests: constructing this runs CREATE TABLE IF NOT EXISTS for
+# every clinical table, which has no business happening on each dashboard load.
+clinical_db = DiagnosisDatabase()
 
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
@@ -294,6 +300,19 @@ def dashboard():
         # Default to patient dashboard for unknown roles
         return render_template('enhanced_auth/patient_dashboard.html')
 
+def _on_date(value, target):
+    """Whether a timestamp falls on *target*.
+
+    PostgreSQL hands back a datetime and SQLite hands back a string, so this goes
+    through str() rather than calling .date() on whatever arrived.
+    """
+    if not value:
+        return False
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '')).date() == target
+    except (TypeError, ValueError):
+        return False
+
 @enhanced_auth_bp.route('/api/dashboard-stats')
 @login_required
 def dashboard_stats():
@@ -302,8 +321,11 @@ def dashboard_stats():
         from patient_models import PatientDatabase
         from database import Database
         
-        # Get doctor identifier
-        doctor_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
+        # Two different identifiers are in play here. patients.created_by stores the
+        # clinician's username, while diagnoses/prescriptions/treatments key off the
+        # immutable doctor_id. Keep them apart rather than reusing one name.
+        created_by = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
+        doctor_code = getattr(current_user, 'doctor_id', None)
         
         # Initialize databases
         patient_db = PatientDatabase()
@@ -311,32 +333,56 @@ def dashboard_stats():
         
         # Get patient count for this doctor
         patients = patient_db.get_all_patients()
-        my_patients = [p for p in patients if p.get('created_by') == doctor_id]
+        my_patients = [p for p in patients if p.get('created_by') == created_by]
         
         # Get diagnosis count for this doctor
         diagnoses = patient_db.get_all_diagnoses()
-        my_diagnoses = [d for d in diagnoses if d.get('created_by') == doctor_id]
-        
-        # Get today's date for appointments (placeholder - no appointment system yet)
-        today = datetime.now().date()
+        my_diagnoses = [d for d in diagnoses if d.get('created_by') == created_by]
         
         # Count code translations (search operations by this doctor)
-        search_count = diagnosis_db.get_user_search_count(doctor_id)
+        search_count = diagnosis_db.get_user_search_count(created_by)
         
+        # Prescriptions and treatment plans belong to a doctor by doctor_id, not by
+        # the username the patient register uses. A doctor without one (an admin, or
+        # an unassigned account) has authored neither.
+        my_treatments = clinical_db.get_doctor_treatments(doctor_code) if doctor_code else []
+
+        # Appointment requests are addressed to a doctor by doctor_id, same as
+        # treatments. Only 'scheduled' rows count as a day's diary: a request the
+        # doctor has not answered yet is not booked, so it is counted separately as
+        # something waiting for them.
+        my_appointments = clinical_db.get_doctor_appointments(doctor_code) if doctor_code else []
+        today = datetime.now().date()
+        todays_appointments = sum(
+            1 for a in my_appointments
+            if a.get('status') == 'scheduled' and _on_date(a.get('appointment_date'), today)
+        )
+
         stats = {
             'my_patients': len(my_patients),
-            'todays_appointments': 0,  # Placeholder - no appointment system
-            'prescriptions': len(my_diagnoses),  # Using diagnoses as prescriptions
+            'todays_appointments': todays_appointments,
+            'pending_appointment_requests': sum(
+                1 for a in my_appointments if a.get('status') == 'pending'
+            ),
+            'diagnoses': len(my_diagnoses),
+            'prescriptions': 0,  # No route writes the prescriptions table yet
+            'treatments': len(my_treatments),
+            'active_treatments': sum(1 for t in my_treatments if t.get('status') == 'active'),
             'code_translations': search_count
         }
         
         return jsonify(stats)
         
     except Exception as e:
+        logger.error('Dashboard stats failed: %s', e)
         return jsonify({
             'my_patients': 0,
             'todays_appointments': 0,
+            'pending_appointment_requests': 0,
+            'diagnoses': 0,
             'prescriptions': 0,
+            'treatments': 0,
+            'active_treatments': 0,
             'code_translations': 0
         })
 
@@ -367,6 +413,48 @@ def doctor_required(f):
         return f(*args, **kwargs)
     decorated_function.__name__ = f.__name__
     return decorated_function
+
+
+def is_clinician():
+    """True when the signed-in user is a doctor or an admin.
+
+    Single source of truth for "may this account handle patient records", shared
+    by the /patients blueprint guard and the app-level routes below so the rule
+    cannot drift apart between call sites.
+    """
+    return bool(
+        current_user.is_authenticated
+        and (current_user.is_doctor() or current_user.is_admin())
+    )
+
+
+def clinician_required(f):
+    """Restrict a view to doctors and admins."""
+
+    @wraps(f)
+    @login_required
+    def decorated_function(*args, **kwargs):
+        if not is_clinician():
+            flash('Clinician access required', 'error')
+            return redirect(url_for('enhanced_auth.dashboard'))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def may_read_patient_record(patient_id):
+    """May the signed-in user read the record belonging to *patient_id*?
+
+    A patient may only read their own record, identified by the patient_id on
+    their own session - never one supplied in the URL. Doctors and admins may
+    read any record.
+    """
+    if not current_user.is_authenticated:
+        return False
+    if is_clinician():
+        return True
+    own = getattr(current_user, 'patient_id', None)
+    return bool(current_user.is_patient() and own and own == patient_id)
 
 @enhanced_auth_bp.route('/admin/users')
 @admin_required

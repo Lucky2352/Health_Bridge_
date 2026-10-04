@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response, send_file
 from flask_login import login_required, current_user
 from analytics_engine import AnalyticsEngine
+from enhanced_routes import is_clinician
 from pandas_analytics import PandasAnalytics
 from datetime import datetime
 import json
@@ -13,6 +14,21 @@ from reportlab.lib import colors
 
 # Create Blueprint
 reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
+
+
+@reports_bp.before_request
+def require_clinician():
+    """Reports aggregate every patient's data, so they are clinician-only.
+
+    The dashboard also drives CSV/PDF export of the whole patient set, which a
+    patient account must not be able to pull down. Nothing in the patient portal
+    links here.
+    """
+    if not current_user.is_authenticated:
+        return redirect(url_for('enhanced_auth.login'))
+    if not is_clinician():
+        flash('Clinician access required', 'error')
+        return redirect(url_for('enhanced_auth.dashboard'))
 
 # Initialize analytics engines
 analytics = AnalyticsEngine()

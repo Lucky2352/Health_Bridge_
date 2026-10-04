@@ -9,242 +9,129 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .form-container {
-            max-width: 900px;
-            margin: 2rem auto;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            border-radius: 20px;
-            padding: 3rem;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            animation: fadeInUp 0.8s ease-out;
+            max-width: 860px;
+            margin: 1.75rem auto;
+            background: #ffffff;
+            border: 1px solid #d0dae6;
+            border-radius: 14px;
+            padding: 2rem;
+            box-shadow: 0 4px 16px rgba(15,39,68,0.10);
         }
-
         .form-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            margin-bottom: 1.75rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 2px solid #e3f0ff;
         }
-
         .form-title {
-            font-size: 2rem;
+            font-size: 1.2rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #00d4ff, #5b73ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: #0d1f35;
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
-
+        .form-title i { color: #1976d2; }
         .form-row {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.1rem;
+            margin-bottom: 1.1rem;
         }
-
-        .form-group {
-            position: relative;
-        }
-
+        .form-group { position: relative; margin-bottom: 1.1rem; }
         .form-label {
             display: block;
-            margin-bottom: 0.5rem;
-            color: rgba(255, 255, 255, 0.8);
-            font-weight: 500;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            margin-bottom: 0.35rem;
+            color: #0d1f35;
+            font-weight: 600;
+            font-size: 0.8rem;
+            letter-spacing: 0.2px;
         }
-
+        .form-label .req { color: #b91c1c; margin-left: 2px; }
         .form-control {
             width: 100%;
-            padding: 14px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            color: white;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            padding: 0.65rem 0.9rem;
+            background: #f4f7fb;
+            border: 1.5px solid #d0dae6;
+            border-radius: 8px;
+            color: #0d1f35;
+            font-size: 0.88rem;
             font-family: 'Inter', sans-serif;
-        }
-
-        .form-control:focus {
+            transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
             outline: none;
-            border-color: #00d4ff;
-            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1), 0 0 20px rgba(0, 212, 255, 0.2);
-            background: rgba(255, 255, 255, 0.08);
+            box-sizing: border-box;
         }
-
-        .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.4);
+        .form-control:focus {
+            border-color: #1976d2;
+            box-shadow: 0 0 0 3px rgba(25,118,210,0.12);
+            background: #ffffff;
         }
-
+        .form-control::placeholder { color: #a0adb8; }
+        textarea.form-control { resize: vertical; min-height: 80px; }
         select.form-control {
-            background: rgba(10, 10, 10, 0.8);
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2300d4ff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-            background-position: right 12px center;
-            background-repeat: no-repeat;
-            background-size: 16px;
-            padding-right: 40px;
             -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23607080' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 10px center;
+            background-repeat: no-repeat;
+            background-size: 14px;
+            padding-right: 36px;
             cursor: pointer;
         }
-
-        select.form-control:focus {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2300d4ff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-        }
-
-        /* Additional browser-specific fixes for dropdown arrows */
-        select.form-control::-ms-expand {
-            display: none;
-        }
-        
-        select.form-control {
-            background-color: rgba(10, 10, 10, 0.8) !important;
-        }
-
-        select.form-control option {
-            background: rgba(10, 10, 10, 0.95);
-            color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin: 2px 0;
-        }
-
-        select.form-control option:hover {
-            background: rgba(0, 212, 255, 0.2);
-        }
-
-        select.form-control option:checked {
-            background: rgba(0, 212, 255, 0.3);
-            color: #00d4ff;
-        }
-
-        textarea.form-control {
-            resize: vertical;
-            min-height: 80px;
-        }
-
+        select.form-control option { background: #ffffff; color: #0d1f35; }
+        .form-text { font-size: 0.75rem; color: #607080; margin-top: 0.3rem; }
+        .validation-message { font-size: 0.75rem; margin-top: 0.3rem; padding: 0.35rem 0.6rem; border-radius: 6px; }
+        .validation-success { color: #1b7a4a; background: #e2f5ec; border: 1px solid #a7d7bc; }
+        .validation-error   { color: #b91c1c; background: #fee2e2; border: 1px solid #fca5a5; }
         .btn {
-            padding: 12px 24px;
+            padding: 0.55rem 1.25rem;
             border: none;
-            border-radius: 25px;
+            border-radius: 8px;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.15s;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            position: relative;
-            overflow: hidden;
+            gap: 0.4rem;
+            font-family: 'Inter', sans-serif;
         }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #00d4ff, #5b73ff);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.4);
-            background: linear-gradient(135deg, #5b73ff, #00d4ff);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            transform: translateY(-2px);
-        }
-
+        .btn-primary { background: #1976d2; color: #ffffff; }
+        .btn-primary:hover { background: #1565c0; box-shadow: 0 4px 12px rgba(21,101,192,0.3); transform: translateY(-1px); color: #ffffff; }
+        .btn-secondary { background: #f4f7fb; color: #2c3e55; border: 1px solid #d0dae6; }
+        .btn-secondary:hover { background: #e3f0ff; color: #0d1f35; border-color: #1976d2; }
         .form-actions {
             display: flex;
             justify-content: space-between;
-            margin-top: 2.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid rgba(0, 212, 255, 0.2);
+            align-items: center;
+            margin-top: 1.75rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid #eef2f7;
         }
-
-        .form-text {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.6);
-            margin-top: 0.5rem;
+        .section-divider {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #1976d2;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin: 1.5rem 0 1rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid #e3f0ff;
         }
-
-        .validation-message {
-            font-size: 0.8rem;
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-
-        .validation-success {
-            color: #51cf66;
-            background: rgba(81, 207, 102, 0.1);
-            border: 1px solid rgba(81, 207, 102, 0.2);
-        }
-
-        .validation-error {
-            color: #ff6b6b;
-            background: rgba(255, 107, 107, 0.1);
-            border: 1px solid rgba(255, 107, 107, 0.2);
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .form-group {
-            animation: fadeInUp 0.6s ease-out;
-            animation-fill-mode: both;
-        }
-
-        .form-group:nth-child(1) { animation-delay: 0.1s; }
-        .form-group:nth-child(2) { animation-delay: 0.2s; }
-        .form-group:nth-child(3) { animation-delay: 0.3s; }
-
         @media (max-width: 768px) {
-            .form-container {
-                margin: 1rem;
-                padding: 2rem 1.5rem;
-            }
-            
-            .form-header {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-            
-            .form-actions {
-                flex-direction: column;
-                gap: 1rem;
-            }
+            .form-container { margin: 1rem; padding: 1.25rem; }
+            .form-header { flex-direction: column; gap: 0.75rem; align-items: flex-start; }
+            .form-actions { flex-direction: column; gap: 0.75rem; }
+            .form-row { grid-template-columns: 1fr; }
         }
     </style>
 </head>
-<body>
+<body style="background:#eef2f7;">
     <div class="dashboard-container">
         <div class="dashboard-sidebar">
             <div class="sidebar-header">
@@ -258,12 +145,14 @@
                 <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
                 <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
                 <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/treatments/" class="nav-link"><i class="fas fa-heartbeat"></i> Treatment Plans</a>
+                <a href="/appointments/" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
                 <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
                 <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
                 <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
                 <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
                 <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
-                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0.75rem 0;">
                 <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </nav>
         </div>
@@ -438,21 +327,7 @@
         // Notification system
         function showNotification(message, type) {
             const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 1rem 1.5rem;
-                border-radius: 12px;
-                color: white;
-                font-weight: 500;
-                z-index: 1000;
-                animation: slideIn 0.3s ease-out;
-                ${type === 'error' ? 
-                    'background: rgba(255, 107, 107, 0.9); border: 1px solid #ff6b6b;' : 
-                    'background: rgba(81, 207, 102, 0.9); border: 1px solid #51cf66;'
-                }
-            `;
+                        notification.style.cssText = `position:fixed;top:20px;right:20px;padding:0.75rem 1.25rem;border-radius:8px;font-weight:500;font-size:0.875rem;z-index:1000;animation:slideIn 0.3s ease-out;${type==='error'?'background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;':'background:#e2f5ec;border:1px solid #a7d7bc;color:#145c38;'}`;
             notification.textContent = message;
             document.body.appendChild(notification);
             

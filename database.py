@@ -1,4 +1,4 @@
-import sqlite3
+import db
 from datetime import datetime
 
 class Database:
@@ -7,7 +7,7 @@ class Database:
         self.init_db()
     
     def init_db(self):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS diagnosis_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,7 +23,7 @@ class Database:
         # Add ABHA ID column if it doesn't exist (for existing databases)
         try:
             conn.execute('ALTER TABLE diagnosis_records ADD COLUMN patient_abha_id TEXT')
-        except sqlite3.OperationalError:
+        except db.OperationalError:
             pass  # Column already exists
         
         # Create search tracking table
@@ -41,7 +41,7 @@ class Database:
         conn.close()
     
     def add_diagnosis(self, patient_id, symptom, namaste_code=None, icd11_code=None, abha_id=None):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         cursor = conn.execute('''
             INSERT INTO diagnosis_records (patient_id, symptom, namaste_code, icd11_code, patient_abha_id)
             VALUES (?, ?, ?, ?, ?)
@@ -52,8 +52,8 @@ class Database:
         return record_id
     
     def get_patient_history(self, patient_id):
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('''
             SELECT * FROM diagnosis_records 
             WHERE UPPER(patient_id) = UPPER(?) 
@@ -64,7 +64,7 @@ class Database:
         return records
     
     def log_search_operation(self, user_id, query, operation_type):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         conn.execute('''
             INSERT INTO search_operations (user_id, search_query, operation_type)
             VALUES (?, ?, ?)
@@ -73,7 +73,7 @@ class Database:
         conn.close()
     
     def get_user_search_count(self, user_id):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         cursor = conn.execute('''
             SELECT COUNT(*) FROM search_operations WHERE user_id = ?
         ''', (user_id,))

@@ -21,6 +21,7 @@
             <nav class="sidebar-nav">
                 <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
                 <a href="/patient/records" class="nav-link"><i class="fas fa-file-medical"></i> My Records</a>
+                <a href="/patient/treatments" class="nav-link"><i class="fas fa-heartbeat"></i> My Treatment Plan</a>
                 <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
                 <a href="/patient/prescriptions" class="nav-link active"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
                 <a href="/patient/history" class="nav-link"><i class="fas fa-history"></i> My History</a>
@@ -71,10 +72,11 @@
                             <div class="dashboard-tool-icon"><i class="fas fa-pills"></i></div>
                             <div class="dashboard-tool-title">My Prescriptions</div>
                             <div class="dashboard-tool-description">Track your medications, dosages, and prescription history from healthcare providers</div>
-                            <div style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.6);">
-                                <i class="fas fa-pills" style="font-size: 2rem; color: #ffd43b; opacity: 0.5; margin-bottom: 1rem;"></i>
-                                <h4>No Active Prescriptions</h4>
-                                <p>Your prescribed medications will appear here once added by your doctor.</p>
+                            <div id="prescriptionsList" style="margin: 1rem 0;">
+                                <div style="text-align:center;padding:2rem;color:#607080;">
+                                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;margin-bottom:0.75rem;"></i>
+                                    <p>Loading prescriptions…</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -87,6 +89,65 @@
         function toggleMobileMenu() {
             document.querySelector('.dashboard-sidebar').classList.toggle('mobile-open');
         }
+
+        async function loadPrescriptions() {
+            const list = document.getElementById('prescriptionsList');
+            // Record text is written by clinicians, so escape before injecting.
+            const escape = s => String(s ?? '').replace(/[&<>"]/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+            ));
+
+            try {
+                const res = await fetch('/patient/api/prescriptions');
+                const data = await res.json();
+                const items = data.prescriptions || [];
+
+                document.getElementById('totalCount').textContent = data.total ?? items.length;
+                document.getElementById('activeCount').textContent = items.length;
+                document.getElementById('recentCount').textContent = data.this_month ?? 0;
+
+                if (items.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state" style="text-align:center;padding:2rem;color:#607080;">
+                            <i class="fas fa-pills" style="font-size:2rem;margin-bottom:1rem;color:#b0bec5;"></i>
+                            <h4 style="color:#2c3e55;">No Active Prescriptions</h4>
+                            <p>${escape(data.message || 'Your prescribed medications will appear here once added by your doctor.')}</p>
+                        </div>`;
+                    return;
+                }
+
+                list.innerHTML = items.map(p => `
+                    <div style="background:#ffffff;border:1px solid #d0dae6;border-left:4px solid #b07d2e;border-radius:10px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.75rem;">
+                            <div>
+                                <h4 style="color:#0d1f35;margin:0 0 0.4rem 0;">${escape(p.medication_name)}</h4>
+                                <p style="color:#2c3e55;margin:0;font-size:0.9rem;">by Dr. ${escape(p.doctor_name || 'Unknown')}</p>
+                            </div>
+                            <div style="text-align:right;">
+                                <span style="background:#fdf3e3;color:#b07d2e;padding:0.25rem 0.75rem;border-radius:12px;font-size:0.8rem;font-weight:600;">Read only</span>
+                                <p style="color:#607080;margin:0.5rem 0 0 0;font-size:0.8rem;">${p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:1.5rem;font-size:0.85rem;color:#2c3e55;">
+                            ${p.dosage ? `<span><strong>Dosage:</strong> ${escape(p.dosage)}</span>` : ''}
+                            ${p.frequency ? `<span><strong>Frequency:</strong> ${escape(p.frequency)}</span>` : ''}
+                            ${p.duration ? `<span><strong>Duration:</strong> ${escape(p.duration)}</span>` : ''}
+                        </div>
+                        ${p.notes ? `<p style="color:#2c3e55;margin:0.75rem 0 0 0;font-style:italic;padding-top:0.75rem;border-top:1px solid #e8edf3;">${escape(p.notes)}</p>` : ''}
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+                list.innerHTML = `
+                    <div class="empty-state" style="text-align:center;padding:2rem;color:#c0392b;">
+                        <i class="fas fa-exclamation-triangle" style="font-size:2rem;margin-bottom:1rem;color:#e74c3c;"></i>
+                        <h4 style="color:#0d1f35;">Error loading prescriptions</h4>
+                        <p>Please try refreshing the page.</p>
+                    </div>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadPrescriptions);
     </script>
 </body>
 </html>

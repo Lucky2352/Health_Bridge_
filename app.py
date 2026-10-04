@@ -3,9 +3,12 @@ load_dotenv()
 
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_login import LoginManager, login_required, current_user
-from enhanced_routes import enhanced_auth_bp
+from enhanced_routes import enhanced_auth_bp, clinician_required, may_read_patient_record
 from enhanced_auth import EnhancedAuthDB
 from patient_routes import patient_bp
+from patient_portal import patient_portal_bp
+from treatment_routes import treatment_bp
+from appointment_routes import appointment_bp
 from fhir_routes import fhir_bp
 from reports_routes import reports_bp
 from utils.namaste_service import get_namaste_service
@@ -15,7 +18,10 @@ from fhir_codesystem import FHIRCodeSystem
 from fhir_conceptmap import ConceptMapper
 from jwt_auth import jwt_required
 from auth_service import AuthService
-from icd11_api import search_icd11, suggest_diseases, configure_icd_api
+from icd11_api import (
+    search_icd11, suggest_diseases, configure_icd_api,
+    gemini_status, check_connection, last_error,
+)
 import uuid
 import re
 import os
@@ -40,8 +46,19 @@ login_manager.login_message = 'Please log in to access this page.'
 # Register enhanced authentication blueprint
 app.register_blueprint(enhanced_auth_bp)
 
-# Register patient management blueprint
+# Register patient management blueprint (clinician-side CRUD on /patients)
 app.register_blueprint(patient_bp)
+
+# Register patient portal (/patient): read-only, plus the patient's own
+# appointment requests
+app.register_blueprint(patient_portal_bp)
+
+# Register clinician-side treatment authoring (/treatments)
+app.register_blueprint(treatment_bp)
+
+# Register clinician-side appointment requests (/appointments) - the accept/decline
+# side of what patients start at /patient/appointments
+app.register_blueprint(appointment_bp)
 
 # Register FHIR interoperability blueprint
 app.register_blueprint(fhir_bp)
@@ -111,6 +128,23 @@ def icd11_suggest():
     suggestions = suggest_diseases(prefix)
     return jsonify(suggestions)
 
+@app.route('/icd11/status')
+@login_required
+def icd11_status():
+    """
+    Diagnose the Gemini connection behind ICD-11 search.
+
+    The mirror of /namaste/status, and the reason it exists: an empty ICD-11 table
+    used to be indistinguishable from a working search that found nothing, so there
+    was no way to tell "no key set" from "bad key" from "model retired". Pass
+    ?probe=1 to make one real API call and prove the key works, not just that it is
+    present.
+    """
+    status = gemini_status()
+    if request.args.get('probe'):
+        status['probe'] = check_connection()
+    return jsonify(status)
+
 @app.route('/namaste/status')
 @login_required
 def namaste_status():
@@ -120,7 +154,12 @@ def namaste_status():
     status = {
         'api_configured': bool(api_key),
         'api_key_preview': f"{api_key[:10]}..." if api_key else None,
-        'csv_fallback_available': os.path.exists('namaste_codes.csv'),
+        # Asked of the service, which resolves the path itself -- a bare
+        # os.path.exists here reported "no fallback" whenever Flask was not
+        # started from the repo root, whatever was actually on disk.
+        'csv_fallback_available': bool(namaste_service.csv_data),
+        'csv_fallback_path': str(namaste_service.csv_file),
+        'csv_rows_loaded': len(namaste_service.csv_data),
         'service_ready': True
     }
     
@@ -239,12 +278,19 @@ def patient_dashboard_stats():
         diagnoses = diagnosis_db.get_patient_diagnoses(current_user.patient_id)
         prescriptions = diagnosis_db.get_patient_prescriptions(current_user.patient_id)
         appointments = diagnosis_db.get_patient_appointments(current_user.patient_id)
+        treatments = diagnosis_db.get_patient_treatments(current_user.patient_id)
         
         stats = {
             'records': len(diagnoses),
             'appointments': len(appointments),
+            # A pending request is not a booking yet, so it is counted apart from
+            # the appointment total and shown as something waiting on the doctor.
+            'pending_appointments': sum(
+                1 for a in appointments if str(a.get('status', '')).lower() == 'pending'
+            ),
             'prescriptions': len(prescriptions),
             'visits': len(diagnoses),
+            'treatments': len(treatments),
             'recent_records': [
                 {
                     'date': d.get('created_at', 'Unknown')[:10] if d.get('created_at') else 'Unknown',
@@ -260,8 +306,10 @@ def patient_dashboard_stats():
         return jsonify({
             'records': 0,
             'appointments': 0,
+            'pending_appointments': 0,
             'prescriptions': 0,
             'visits': 0,
+            'treatments': 0,
             'recent_records': []
         })
 
@@ -359,20 +407,30 @@ def unified_search():
     namaste_response = namaste_service.get_namaste_codes(query)
     namaste_results = namaste_response.get('results', [])
     
-    # Step 2: Search ICD-11 via WHO API
+    # Step 2: Search ICD-11 via the Gemini-backed lookup
     icd11_results = search_icd11(query)
-    
+
     # Step 3: Return FHIR format if requested
     if format_type == 'fhir':
         return jsonify(FHIRCodeSystem.create_search_valueset(query, namaste_results, icd11_results))
     
     # Step 4: Default JSON format with source info
-    return jsonify({
+    payload = {
         'namaste': namaste_results,
         'namaste_source': namaste_response.get('source', 'unknown'),
         'namaste_message': namaste_response.get('message', ''),
-        'icd11': icd11_results
-    })
+        'icd11': icd11_results,
+    }
+
+    # An empty ICD-11 list used to be ambiguous between "searched and found
+    # nothing" and "the API is not connected at all". Say which it was, so the
+    # page can stop telling users to check a key it cannot itself see.
+    if not icd11_results:
+        payload['icd11_error'] = last_error()
+    else:
+        payload['icd11_count'] = len(icd11_results)
+
+    return jsonify(payload)
 
 @app.route('/diagnosis', methods=['POST'])
 @login_required
@@ -464,8 +522,14 @@ def add_diagnosis():
         }), 500
 
 @app.route('/patients/<patient_id>/fhir')
-@login_required
+@clinician_required
 def get_patient_fhir(patient_id):
+    """FHIR Patient resource for a patient - clinician side only.
+
+    Returns name, contact and identifiers, so it must not be reachable by a
+    patient account even for their own record. The patient portal serves its
+    own read-only views instead.
+    """
     try:
         from patient_models import PatientDatabase
         patient_db = PatientDatabase()
@@ -486,6 +550,17 @@ def get_patient_fhir(patient_id):
 @app.route('/patient/<patient_id>/history')
 @login_required
 def get_patient_history(patient_id):
+    """Full diagnosis history for one patient.
+
+    patient_id comes from the URL, so it has to be checked against the
+    session: a patient may only ever read their own record, clinicians may
+    read any.
+    """
+    if not may_read_patient_record(patient_id):
+        return jsonify({
+            'error': 'You do not have access to this patient record'
+        }), 403
+
     try:
         from patient_models import PatientDatabase
         patient_db = PatientDatabase()
@@ -574,17 +649,17 @@ def index():
         return redirect(url_for('enhanced_auth.login'))
 
 @app.route('/search-page')
-@login_required
+@clinician_required
 def search_page():
     return render_template('search.html')
 
 @app.route('/diagnosis-page')
-@login_required
+@clinician_required
 def diagnosis_page():
     return render_template('diagnosis.html')
 
 @app.route('/history-page')
-@login_required
+@clinician_required
 def history_page():
     return render_template('history.html')
 

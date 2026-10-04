@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Treatment Plan - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+<div class="dashboard-container">
+    <div class="dashboard-sidebar">
+        <div class="sidebar-header">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
+                <h4 style="margin: 0;">HealthBridge</h4>
+            </div>
+            <small>Patient Portal</small>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="/patient/records" class="nav-link"><i class="fas fa-file-medical"></i> My Records</a>
+            <a href="/patient/treatments" class="nav-link active"><i class="fas fa-heartbeat"></i> My Treatment Plan</a>
+            <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
+            <a href="/patient/prescriptions" class="nav-link"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
+            <a href="/patient/history" class="nav-link"><i class="fas fa-history"></i> My History</a>
+            <a href="/patient/profile" class="nav-link"><i class="fas fa-user-circle"></i> Profile</a>
+            <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+            <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-navbar">
+            <div>
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h5><i class="fas fa-heartbeat"></i> My Treatment Plan</h5>
+            </div>
+            <div>
+                <span class="role-badge patient"><i class="fas fa-lock"></i> View only</span>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <div class="dashboard-stats">
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-icon"><i class="fas fa-heartbeat" style="color:#2e7d9f;"></i></div>
+                    <div class="dashboard-stat-number" id="activeCount">0</div>
+                    <div class="dashboard-stat-label">Active</div>
+                </div>
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-icon" style="background:#f3eef8;"><i class="fas fa-clipboard-list" style="color:#6b4fa0;"></i></div>
+                    <div class="dashboard-stat-number" id="totalCount">0</div>
+                    <div class="dashboard-stat-label">Total Treatments</div>
+                </div>
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-icon" style="background:#e8f5ee;"><i class="fas fa-user-md" style="color:#2e7d5a;"></i></div>
+                    <div class="dashboard-stat-number" id="doctorCount">0</div>
+                    <div class="dashboard-stat-label">Doctors Treating Me</div>
+                </div>
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-icon" style="background:#fdf3e3;"><i class="fas fa-clock" style="color:#b07d2e;"></i></div>
+                    <div class="dashboard-stat-number" id="recentCount">0</div>
+                    <div class="dashboard-stat-label">Started This Month</div>
+                </div>
+            </div>
+
+            <div class="doctor-tools">
+                <h3><i class="fas fa-user-md"></i> My Doctors</h3>
+                <p style="color:#607080;font-size:0.85rem;margin:-0.5rem 0 1rem;">
+                    The clinicians currently treating you. Contact them directly about anything on your plan.
+                </p>
+                <div id="doctorsList">
+                    <div style="text-align:center;padding:1.5rem;color:#607080;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="doctor-tools">
+                <h3><i class="fas fa-heartbeat"></i> Treatment Plan</h3>
+                <p style="color:#607080;font-size:0.85rem;margin:-0.5rem 0 1rem;">
+                    <i class="fas fa-lock"></i>
+                    Your treatment is decided and maintained by your doctor. You can read everything here,
+                    but any change has to come from them.
+                </p>
+                <div id="treatmentsList">
+                    <div style="text-align:center;padding:2rem;color:#607080;">
+                        <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;margin-bottom:0.75rem;"></i>
+                        <p>Loading your treatment plan…</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleMobileMenu() {
+        document.querySelector('.dashboard-sidebar').classList.toggle('mobile-open');
+    }
+
+    // Treatment text is written by clinicians, so escape before injecting.
+    const escape = s => String(s ?? '').replace(/[&<>"]/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+    ));
+
+    const fmtDate = value => {
+        if (!value) return '';
+        const d = new Date(value);
+        return isNaN(d) ? escape(value) : d.toLocaleDateString();
+    };
+
+    // Status drives the badge colour; keep in step with TREATMENT_STATUSES.
+    const STATUS_COLOUR = {
+        active:       { background: '#e8f5ee', colour: '#1e5c3a' },
+        completed:    { background: '#e3f0fb', colour: '#155a9e' },
+        discontinued: { background: '#fdeaea', colour: '#8b2020' },
+        on_hold:      { background: '#fdf3e3', colour: '#b07d2e' },
+    };
+
+    function renderDoctors(doctors) {
+        const list = document.getElementById('doctorsList');
+
+        if (!doctors || doctors.length === 0) {
+            list.innerHTML = `
+                <div style="text-align:center;padding:2rem;color:#607080;background:#ffffff;border:1px dashed #d0dae6;border-radius:10px;">
+                    <i class="fas fa-user-md" style="font-size:2rem;margin-bottom:0.75rem;color:#b0bec5;"></i>
+                    <h4 style="color:#2c3e55;margin:0 0 0.5rem 0;">No doctor assigned yet</h4>
+                    <p style="margin:0;">A doctor will appear here once they start a treatment plan for you.</p>
+                </div>`;
+            return;
+        }
+
+        list.innerHTML = doctors.map(d => `
+            <div style="background:#ffffff;border:1px solid #d0dae6;border-left:4px solid #2e7d5a;border-radius:10px;padding:1.25rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;flex-wrap:wrap;">
+                    <div>
+                        <h4 style="color:#0d1f35;margin:0 0 0.35rem 0;">
+                            ${d.doctor_name ? 'Dr. ' + escape(d.doctor_name) : 'Doctor unavailable'}
+                        </h4>
+                        <p style="color:#607080;margin:0;font-size:0.8rem;">
+                            Doctor ID: ${escape(d.doctor_id || 'N/A')}
+                        </p>
+                        ${d.doctor_email ? `
+                            <p style="color:#2c3e55;margin:0.35rem 0 0 0;font-size:0.85rem;">
+                                <i class="fas fa-envelope"></i>
+                                <a href="mailto:${escape(d.doctor_email)}"
+                                   style="color:#1976d2;text-decoration:none;">${escape(d.doctor_email)}</a>
+                            </p>` : ''}
+                    </div>
+                    <div style="text-align:right;font-size:0.8rem;color:#607080;">
+                        <div><strong style="color:#0d1f35;">${escape(d.active_count ?? 0)}</strong> active</div>
+                        <div><strong style="color:#0d1f35;">${escape(d.treatment_count ?? 0)}</strong> in total</div>
+                        ${d.last_treatment_at ? `<div>last ${fmtDate(d.last_treatment_at)}</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderTreatments(items) {
+        const list = document.getElementById('treatmentsList');
+
+        if (!items || items.length === 0) {
+            list.innerHTML = `
+                <div style="text-align:center;padding:2.5rem;color:#607080;background:#ffffff;border:1px dashed #d0dae6;border-radius:10px;">
+                    <i class="fas fa-heartbeat" style="font-size:2rem;margin-bottom:0.75rem;color:#b0bec5;"></i>
+                    <h4 style="color:#2c3e55;margin:0 0 0.5rem 0;">No treatments recorded</h4>
+                    <p style="margin:0;">Any treatment your doctor starts for you will appear here.</p>
+                </div>`;
+            return;
+        }
+
+        list.innerHTML = items.map(t => {
+            const status = String(t.status || 'active').toLowerCase();
+            const badge = STATUS_COLOUR[status] || STATUS_COLOUR.active;
+            const details = [
+                t.medication_name ? ['Medication', t.medication_name] : null,
+                t.dosage ? ['Dosage', t.dosage] : null,
+                t.frequency ? ['Frequency', t.frequency] : null,
+                t.duration ? ['Duration', t.duration] : null,
+                t.start_date ? ['Started', fmtDate(t.start_date)] : null,
+                t.follow_up_date ? ['Follow-up', fmtDate(t.follow_up_date)] : null,
+            ].filter(Boolean);
+
+            return `
+            <div style="background:#ffffff;border:1px solid #d0dae6;border-left:4px solid #1976d2;border-radius:10px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;margin-bottom:0.75rem;">
+                    <div>
+                        <h4 style="color:#0d1f35;margin:0 0 0.35rem 0;">${escape(t.title)}</h4>
+                        <p style="color:#2c3e55;margin:0;font-size:0.9rem;">
+                            Prescribed by
+                            ${t.doctor_name ? 'Dr. ' + escape(t.doctor_name) : 'a doctor no longer on this system'}
+                        </p>
+                        ${t.doctor_email ? `
+                            <p style="color:#607080;margin:0.2rem 0 0 0;font-size:0.8rem;">
+                                <i class="fas fa-envelope"></i> ${escape(t.doctor_email)}
+                            </p>` : ''}
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="background:${badge.background};color:${badge.colour};padding:0.25rem 0.75rem;border-radius:12px;font-size:0.8rem;font-weight:600;text-transform:capitalize;">
+                            ${escape(String(t.status || '').replace(/_/g, ' '))}
+                        </span>
+                        <p style="color:#607080;margin:0.5rem 0 0 0;font-size:0.8rem;">${fmtDate(t.created_at)}</p>
+                        <p style="margin:0.35rem 0 0 0;font-size:0.7rem;color:#b0bec5;">
+                            <i class="fas fa-lock"></i> read only
+                        </p>
+                    </div>
+                </div>
+
+                ${details.length ? `
+                    <div style="display:flex;flex-wrap:wrap;gap:1.5rem;font-size:0.85rem;color:#2c3e55;">
+                        ${details.map(([k, v]) => `<span><strong>${k}:</strong> ${escape(v)}</span>`).join('')}
+                    </div>` : ''}
+
+                ${t.description ? `<p style="color:#2c3e55;margin:0.75rem 0 0 0;padding-top:0.75rem;border-top:1px solid #e8edf3;white-space:pre-wrap;">${escape(t.description)}</p>` : ''}
+                ${t.instructions ? `
+                    <p style="color:#2c3e55;margin:0.75rem 0 0 0;padding:0.75rem;background:#f0f6fc;border-radius:8px;white-space:pre-wrap;">
+                        <i class="fas fa-info-circle" style="color:#2e7d9f;"></i>
+                        <strong>How to take this:</strong> ${escape(t.instructions)}
+                    </p>` : ''}
+                ${t.notes ? `<p style="color:#2c3e55;margin:0.75rem 0 0 0;font-style:italic;padding-top:0.75rem;border-top:1px solid #e8edf3;white-space:pre-wrap;">${escape(t.notes)}</p>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    async function loadPlan() {
+        const treatmentsList = document.getElementById('treatmentsList');
+
+        try {
+            const res = await fetch('/patient/api/treatments');
+            const data = await res.json();
+
+            renderTreatments(data.treatments);
+            // /patient/api/treatments already returns both lists, so the doctor
+            // panel and the treatment panel come from a single round trip.
+            renderDoctors(data.doctors);
+
+            document.getElementById('totalCount').textContent  = data.total ?? 0;
+            document.getElementById('activeCount').textContent  = data.active ?? 0;
+            document.getElementById('doctorCount').textContent = (data.doctors || []).length;
+            document.getElementById('recentCount').textContent = data.this_month ?? 0;
+        } catch (err) {
+            console.error(err);
+            treatmentsList.innerHTML = `
+                <div style="text-align:center;padding:2rem;color:#c0392b;background:#fdeaea;border:1px solid #f5c6c6;border-radius:10px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size:2rem;margin-bottom:1rem;color:#e74c3c;"></i>
+                    <h4 style="color:#0d1f35;">Error loading your treatment plan</h4>
+                    <p>Please try refreshing the page.</p>
+                </div>`;
+            document.getElementById('doctorsList').innerHTML = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadPlan);
+</script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -21,6 +21,7 @@
             <nav class="sidebar-nav">
                 <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
                 <a href="/patient/records" class="nav-link"><i class="fas fa-file-medical"></i> My Records</a>
+                <a href="/patient/treatments" class="nav-link"><i class="fas fa-heartbeat"></i> My Treatment Plan</a>
                 <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
                 <a href="/patient/prescriptions" class="nav-link"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
                 <a href="/patient/history" class="nav-link"><i class="fas fa-history"></i> My History</a>
@@ -59,7 +60,8 @@
                     </div>
                     <div class="dashboard-stat-card">
                         <div class="dashboard-stat-icon"><i class="fas fa-calendar"></i></div>
-                        <div class="dashboard-stat-number">{{ current_user.created_at[:4] if current_user.created_at else '2024' }}</div>
+                        <!-- |string first so this works whether created_at is TEXT or a real timestamp -->
+                        <div class="dashboard-stat-number">{{ (current_user.created_at|string)[:4] if current_user.created_at else '—' }}</div>
                         <div class="dashboard-stat-label">Member Since</div>
                     </div>
                 </div>

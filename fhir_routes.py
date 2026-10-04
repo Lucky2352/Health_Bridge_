@@ -1,10 +1,26 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from enhanced_routes import is_clinician
 from fhir_interop import FHIRInteroperability
 import json
 
 # Create Blueprint
 fhir_bp = Blueprint('fhir', __name__, url_prefix='/fhir')
+
+
+@fhir_bp.before_request
+def require_clinician():
+    """FHIR bundles are institution-wide and writable, so clinician-only.
+
+    Every route here either lists, uploads or mutates bundles covering all
+    patients; the patient portal has its own read-only views and never links
+    here.
+    """
+    if not current_user.is_authenticated:
+        return redirect(url_for('enhanced_auth.login'))
+    if not is_clinician():
+        flash('Clinician access required', 'error')
+        return redirect(url_for('enhanced_auth.dashboard'))
 
 # Initialize FHIR system
 fhir_system = FHIRInteroperability()

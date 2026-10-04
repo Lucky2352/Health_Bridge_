@@ -1,4 +1,4 @@
-import sqlite3
+import db
 from datetime import datetime
 import json
 
@@ -8,7 +8,7 @@ class PatientDatabase:
         self.init_database()
     
     def init_database(self):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         
         # Patients table
         conn.execute('''
@@ -32,9 +32,13 @@ class PatientDatabase:
         
         # Add ABHA ID column if it doesn't exist (for existing databases)
         try:
-            conn.execute('ALTER TABLE patients ADD COLUMN abha_id TEXT UNIQUE')
-        except sqlite3.OperationalError:
+            conn.execute('ALTER TABLE patients ADD COLUMN abha_id TEXT')
+        except (db.OperationalError, Exception):
             pass  # Column already exists
+        try:
+            conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_abha_id ON patients(abha_id)')
+        except (db.OperationalError, Exception):
+            pass
         
         # Patient diagnoses table
         conn.execute('''
@@ -58,7 +62,7 @@ class PatientDatabase:
         conn.close()
     
     def create_patient(self, data, created_by):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         
         try:
             # Generate patient ID
@@ -69,13 +73,14 @@ class PatientDatabase:
             # Validate required fields
             if not data.get('name') or not data.get('contact'):
                 raise ValueError('Name and contact are required fields')
-            
+
+            abha_id = data.get('abha_id', '')
             cursor = conn.execute('''
                 INSERT INTO patients (patient_id, name, age, gender, contact, email, address, medical_history, allergies, abha_id, created_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (patient_id, data['name'], data['age'], data['gender'], data['contact'], 
-                  data.get('email', ''), data.get('address', ''), data.get('medical_history', ''), 
-                  data.get('allergies', ''), data.get('abha_id', ''), created_by))
+            ''', (patient_id, data['name'], data.get('age'), data.get('gender'), data.get('contact'),
+                  data.get('email', ''), data.get('address', ''), data.get('medical_history', ''),
+                  data.get('allergies', ''), (abha_id if abha_id else None), created_by))
             
             conn.commit()
             return patient_id
@@ -87,35 +92,38 @@ class PatientDatabase:
             conn.close()
     
     def get_patient(self, patient_id):
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('SELECT * FROM patients WHERE UPPER(patient_id) = UPPER(?)', (patient_id,))
         patient = cursor.fetchone()
         conn.close()
         return dict(patient) if patient else None
     
     def update_patient(self, patient_id, data):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
+        abha_id = data.get('abha_id', '')
+        if abha_id == '':
+            abha_id = None
         conn.execute('''
             UPDATE patients 
             SET name=?, age=?, gender=?, contact=?, email=?, address=?, medical_history=?, allergies=?, abha_id=?, updated_at=CURRENT_TIMESTAMP
             WHERE patient_id=?
-        ''', (data['name'], data['age'], data['gender'], data['contact'], 
-              data.get('email', ''), data.get('address', ''), data.get('medical_history', ''), 
-              data.get('allergies', ''), data.get('abha_id', ''), patient_id))
+        ''', (data.get('name'), data.get('age'), data.get('gender'), data.get('contact'),
+              data.get('email', ''), data.get('address', ''), data.get('medical_history', ''),
+              data.get('allergies', ''), abha_id, patient_id))
         conn.commit()
         conn.close()
     
     def delete_patient(self, patient_id):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         conn.execute('DELETE FROM patients WHERE patient_id = ?', (patient_id,))
         conn.execute('DELETE FROM patient_diagnoses WHERE patient_id = ?', (patient_id,))
         conn.commit()
         conn.close()
     
     def search_patients(self, query='', filters=None):
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         
         sql = 'SELECT * FROM patients WHERE 1=1'
         params = []
@@ -143,7 +151,7 @@ class PatientDatabase:
         return patients
     
     def add_diagnosis(self, patient_id, diagnosis_data, created_by):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         
         # Get patient's ABHA ID
         patient = self.get_patient(patient_id)
@@ -152,22 +160,26 @@ class PatientDatabase:
         # Add ABHA ID column if it doesn't exist
         try:
             conn.execute('ALTER TABLE patient_diagnoses ADD COLUMN patient_abha_id TEXT')
-        except sqlite3.OperationalError:
+        except db.OperationalError:
             pass  # Column already exists
         
+        symptoms = diagnosis_data.get('symptoms') or diagnosis_data.get('condition_name') or diagnosis_data.get('notes', '') or ''
+        diag_date = diagnosis_data.get('date') or datetime.now().date()
+        if hasattr(diag_date, 'isoformat'):
+            diag_date = diag_date.isoformat()
         conn.execute('''
             INSERT INTO patient_diagnoses (patient_id, diagnosis_date, symptoms, namaste_code, namaste_name, icd11_code, icd11_name, notes, patient_abha_id, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (patient_id, diagnosis_data.get('date', datetime.now().date()), 
-              diagnosis_data['symptoms'], diagnosis_data.get('namaste_code'), 
-              diagnosis_data.get('namaste_name'), diagnosis_data.get('icd11_code'), 
-              diagnosis_data.get('icd11_name'), diagnosis_data.get('notes', ''), patient_abha_id, created_by))
+        ''', (patient_id, diag_date,
+              symptoms, diagnosis_data.get('namaste_code'),
+              diagnosis_data.get('namaste_name'), diagnosis_data.get('icd11_code'),
+              diagnosis_data.get('icd11_name'), diagnosis_data.get('notes', '') or '', patient_abha_id or '', created_by))
         conn.commit()
         conn.close()
     
     def get_patient_diagnoses(self, patient_id):
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('''
             SELECT * FROM patient_diagnoses 
             WHERE UPPER(patient_id) = UPPER(?) 
@@ -178,16 +190,16 @@ class PatientDatabase:
         return diagnoses
     
     def get_all_patients(self):
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('SELECT * FROM patients ORDER BY created_at DESC')
         patients = [dict(row) for row in cursor.fetchall()]
         conn.close()
         return patients
     
     def get_all_diagnoses(self):
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('SELECT * FROM patient_diagnoses ORDER BY created_at DESC')
         diagnoses = [dict(row) for row in cursor.fetchall()]
         conn.close()

@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response, session
 from flask_login import login_required, current_user
 from patient_models import PatientDatabase
+from enhanced_routes import is_clinician
 from abha_validator import ABHAValidator
 import csv
 import io
@@ -11,6 +12,37 @@ patient_bp = Blueprint('patients', __name__, url_prefix='/patients')
 
 # Initialize database
 patient_db = PatientDatabase()
+
+@patient_bp.before_request
+def require_clinician():
+    """Keep the patient register to doctors and admins.
+
+    This blueprint is the clinician-side CRUD for /patients. Its write routes
+    only carried @login_required, which meant any signed-in patient could
+    create, edit or delete other patients' records and add diagnoses to them.
+    Enforcing it here rather than per-route means routes added later are
+    covered automatically.
+    """
+    if not current_user.is_authenticated:
+        return redirect(url_for('enhanced_auth.login'))
+
+    if not is_clinician():
+        flash('Clinician access required', 'error')
+        return redirect(url_for('enhanced_auth.dashboard'))
+
+def _owns_patient(patient):
+    """Whether the signed-in clinician is the one who registered *patient*.
+
+    patients.created_by holds the clinician's username, falling back to their
+    email, so this single comparison is what keeps one doctor's register private
+    from another. Every route in this blueprint that touches an existing record
+    must call it, on reads *and* on writes: a check only on the GET that shows the
+    edit form leaves the POST wide open.
+    """
+    if not patient:
+        return False
+    doctor_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
+    return patient.get('created_by') == doctor_id
 
 @patient_bp.route('/')
 @login_required
@@ -95,8 +127,7 @@ def patient_detail(patient_id):
         return redirect(url_for('patients.patient_list'))
     
     # Check if patient belongs to current doctor
-    doctor_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
-    if patient.get('created_by') != doctor_id:
+    if not _owns_patient(patient):
         flash('Access denied: This patient does not belong to your account', 'error')
         return redirect(url_for('patients.patient_list'))
     
@@ -112,8 +143,7 @@ def edit_patient_form(patient_id):
         return redirect(url_for('patients.patient_list'))
     
     # Check if patient belongs to current doctor
-    doctor_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
-    if patient.get('created_by') != doctor_id:
+    if not _owns_patient(patient):
         flash('Access denied: This patient does not belong to your account', 'error')
         return redirect(url_for('patients.patient_list'))
     
@@ -122,6 +152,12 @@ def edit_patient_form(patient_id):
 @patient_bp.route('/<patient_id>/edit', methods=['POST'])
 @login_required
 def edit_patient(patient_id):
+    # Re-check ownership on the write, not just on the form GET: without this the
+    # edit form being guarded would be no protection at all.
+    if not _owns_patient(patient_db.get_patient(patient_id)):
+        flash('Access denied: This patient does not belong to your account', 'error')
+        return redirect(url_for('patients.patient_list'))
+    
     try:
         abha_id = request.form.get('abha_id', '').strip()
         
@@ -163,8 +199,7 @@ def delete_patient(patient_id):
             return redirect(url_for('patients.patient_list'))
         
         # Check if patient belongs to current doctor
-        doctor_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
-        if patient.get('created_by') != doctor_id:
+        if not _owns_patient(patient):
             flash('Access denied: This patient does not belong to your account', 'error')
             return redirect(url_for('patients.patient_list'))
         
@@ -179,6 +214,11 @@ def delete_patient(patient_id):
 @patient_bp.route('/<patient_id>/diagnosis', methods=['POST'])
 @login_required
 def add_diagnosis(patient_id):
+    # Same reason as edit_patient: the form is only the happy path.
+    if not _owns_patient(patient_db.get_patient(patient_id)):
+        flash('Access denied: This patient does not belong to your account', 'error')
+        return redirect(url_for('patients.patient_list'))
+    
     try:
         diagnosis_data = {
             'date': request.form.get('date') or datetime.now().date(),

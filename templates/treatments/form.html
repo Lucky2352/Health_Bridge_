@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if treatment %}Edit Treatment{% else %}New Treatment{% endif %} - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #1a2332; }
+        .wrap { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+        .topbar { display: flex; justify-content: space-between; align-items: center;
+                  flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
+        .topbar h1 { margin: 0; font-size: 1.4rem; color: #0d1f35; }
+        .topbar p { margin: 0.25rem 0 0; color: #607080; font-size: 0.875rem; }
+        .alert { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.25rem;
+                 display: flex; align-items: center; gap: 0.6rem; font-size: 0.875rem;
+                 font-weight: 500; border: 1px solid; }
+        .alert-success { background: #e8f5ee; border-color: #b8dfc9; color: #1e5c3a; }
+        .alert-error   { background: #fdeaea; border-color: #f5c6c6; color: #8b2020; }
+        .alert-close { margin-left: auto; background: none; border: none;
+                       color: inherit; font-size: 1rem; cursor: pointer; opacity: 0.6; }
+        .panel { background: #fff; border: 1px solid #d0dae6; border-radius: 10px;
+                 padding: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+                gap: 1rem; }
+        .field { display: flex; flex-direction: column; gap: 0.35rem; }
+        .field.full { grid-column: 1 / -1; }
+        label { font-size: 0.78rem; font-weight: 600; color: #2c3e55;
+                text-transform: uppercase; letter-spacing: 0.03em; }
+        label .req { color: #c0392b; }
+        input, select, textarea { font-family: inherit; font-size: 0.9rem; padding: 0.55rem 0.7rem;
+                                 border: 1px solid #d0dae6; border-radius: 8px;
+                                 background: #fff; color: #1a2332; }
+        input:focus, select:focus, textarea:focus { outline: none;
+                                                    border-color: #1976d2;
+                                                    box-shadow: 0 0 0 3px rgba(25,118,210,0.12); }
+        textarea { resize: vertical; min-height: 74px; }
+        .hint { font-size: 0.75rem; color: #607080; }
+        .fixed-field { font-size: 0.9rem; color: #2c3e55; padding: 0.55rem 0.7rem;
+                       background: #f4f7fa; border: 1px dashed #d0dae6; border-radius: 8px; }
+        .actions { display: flex; gap: 0.75rem; margin-top: 1.5rem;
+                   padding-top: 1.25rem; border-top: 1px solid #e8edf3; }
+        .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.1rem;
+               border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+               cursor: pointer; text-decoration: none; font-family: inherit; }
+        .btn-primary { background: #1976d2; color: #fff; }
+        .btn-primary:hover { background: #155a9e; }
+        .btn-ghost { background: #fff; color: #2c3e55; border: 1px solid #d0dae6; }
+        .btn-ghost:hover { background: #eef3f8; }
+        fieldset { border: none; padding: 0; margin: 1.75rem 0 0; }
+        legend { font-size: 0.78rem; font-weight: 700; color: #2e7d9f;
+                 text-transform: uppercase; letter-spacing: 0.05em; padding: 0 0 0.75rem; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="topbar">
+        <div>
+            <h1>{% if treatment %}<i class="fas fa-pen" style="color:#1976d2;"></i> Edit Treatment{% else %}<i class="fas fa-plus" style="color:#1976d2;"></i> New Treatment{% endif %}</h1>
+            <p>The patient sees this on their dashboard as soon as you save it.</p>
+        </div>
+        <a href="/treatments/" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> All Treatments</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                    <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
+                    {{ message }}
+                    <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {# Re-populate from the rejected POST when one is passed back, otherwise the
+       stored treatment, otherwise empty. src is always a dict, so .get is safe. #}
+    {% set src = form_data if (form_data is defined and form_data) else (treatment or {}) %}
+
+    <form method="POST" class="panel"
+          action="{% if treatment %}/treatments/{{ treatment.id }}/edit{% else %}/treatments/create{% endif %}">
+        <div class="grid">
+            <div class="field full">
+                <label for="patient_id">Patient <span class="req">*</span></label>
+                {% if treatment %}
+                    {# patient_id is not an editable column: reassigning a plan would
+                       rewrite who it was prescribed to, so it is shown and locked. #}
+                    <div class="fixed-field">
+                        {{ treatment.patient_id }}
+                        <span class="hint">The patient a treatment belongs to cannot be changed.</span>
+                    </div>
+                {% else %}
+                    <select id="patient_id" name="patient_id" required>
+                        <option value="">Select a patient…</option>
+                        {% for patient in patients %}
+                            <option value="{{ patient.patient_id }}"
+                                {% if patient.patient_id == selected_patient %}selected{% endif %}>
+                                {{ patient.full_name }} &mdash; {{ patient.patient_id }}{% if patient.email %} ({{ patient.email }}){% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <span class="hint">Patients are the portal accounts on this system.</span>
+                {% endif %}
+            </div>
+
+            <div class="field full">
+                <label for="title">Treatment title <span class="req">*</span></label>
+                <input type="text" id="title" name="title" required maxlength="200"
+                       placeholder="e.g. Amoxicillin course for bacterial infection"
+                       value="{{ src.get('title', '') }}">
+            </div>
+
+            <div class="field">
+                <label for="treatment_type">Type</label>
+                <select id="treatment_type" name="treatment_type">
+                    {% for option in treatment_types %}
+                        <option value="{{ option }}"
+                            {% if src.get('treatment_type', 'medication') == option %}selected{% endif %}>
+                            {{ option | replace('_', ' ') | title }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    {% for option in treatment_statuses %}
+                        <option value="{{ option }}"
+                            {% if src.get('status', 'active') == option %}selected{% endif %}>
+                            {{ option | replace('_', ' ') | title }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <fieldset>
+            <legend>Medication</legend>
+            <div class="grid">
+                <div class="field">
+                    <label for="medication_name">Medication</label>
+                    <input type="text" id="medication_name" name="medication_name" maxlength="200"
+                           placeholder="e.g. Amoxicillin" value="{{ src.get('medication_name', '') }}">
+                </div>
+                <div class="field">
+                    <label for="dosage">Dosage</label>
+                    <input type="text" id="dosage" name="dosage" maxlength="100"
+                           placeholder="e.g. 500 mg" value="{{ src.get('dosage', '') }}">
+                </div>
+                <div class="field">
+                    <label for="frequency">Frequency</label>
+                    <input type="text" id="frequency" name="frequency" maxlength="100"
+                           placeholder="e.g. Twice daily" value="{{ src.get('frequency', '') }}">
+                </div>
+                <div class="field">
+                    <label for="duration">Duration</label>
+                    <input type="text" id="duration" name="duration" maxlength="100"
+                           placeholder="e.g. 7 days" value="{{ src.get('duration', '') }}">
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Schedule</legend>
+            <div class="grid">
+                <div class="field">
+                    <label for="start_date">Start date</label>
+                    <input type="date" id="start_date" name="start_date"
+                           value="{{ src.get('start_date', '') }}">
+                </div>
+                <div class="field">
+                    <label for="end_date">End date</label>
+                    <input type="date" id="end_date" name="end_date"
+                           value="{{ src.get('end_date', '') }}">
+                </div>
+                <div class="field">
+                    <label for="follow_up_date">Follow-up date</label>
+                    <input type="date" id="follow_up_date" name="follow_up_date"
+                           value="{{ src.get('follow_up_date', '') }}">
+                    <span class="hint">Shown to the patient as the next appointment to attend.</span>
+                </div>
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Detail</legend>
+            <div class="grid">
+                <div class="field full">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="3"
+                              placeholder="What is being treated and why">{{ src.get('description', '') }}</textarea>
+                </div>
+                <div class="field full">
+                    <label for="instructions">Patient instructions</label>
+                    <textarea id="instructions" name="instructions" rows="3"
+                              placeholder="How the patient should take or carry out this treatment">{{ src.get('instructions', '') }}</textarea>
+                </div>
+                <div class="field full">
+                    <label for="notes">Clinical notes</label>
+                    <textarea id="notes" name="notes" rows="2"
+                              placeholder="Anything recorded for the clinician's own reference">{{ src.get('notes', '') }}</textarea>
+                    <span class="hint">Visible to the patient. Keep anything private out of this field.</span>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check"></i> {% if treatment %}Save changes{% else %}Start treatment{% endif %}
+            </button>
+            <a href="/treatments/" class="btn btn-ghost">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

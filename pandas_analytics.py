@@ -1,5 +1,5 @@
 import pandas as pd
-import sqlite3
+import db
 from datetime import datetime, timedelta
 import json
 
@@ -11,14 +11,14 @@ class PandasAnalytics:
     def get_patient_registration_data(self, doctor_id=None):
         """Get patient registration data grouped by time intervals"""
         try:
-            conn = sqlite3.connect(self.patients_db)
+            conn = db.connect(self.patients_db)
             
             # Fetch patient data - filter by doctor if provided
             if doctor_id:
                 query = """
                 SELECT patient_id, name, created_at, gender, age
                 FROM patients 
-                WHERE created_by = ?
+                WHERE created_by = %s
                 ORDER BY created_at DESC
                 """
                 df = pd.read_sql_query(query, conn, params=[doctor_id])
@@ -60,15 +60,15 @@ class PandasAnalytics:
         """Get diagnosis distribution data"""
         try:
             # Get data from both databases
-            patients_conn = sqlite3.connect(self.patients_db)
-            diagnosis_conn = sqlite3.connect(self.diagnosis_db)
+            patients_conn = db.connect(self.patients_db)
+            diagnosis_conn = db.connect(self.diagnosis_db)
             
             # Fetch patient diagnoses - filter by doctor if provided
             if doctor_id:
                 patient_query = """
                 SELECT patient_id, symptoms, namaste_code, icd11_code, diagnosis_date
                 FROM patient_diagnoses 
-                WHERE symptoms IS NOT NULL AND symptoms != '' AND created_by = ?
+                WHERE symptoms IS NOT NULL AND symptoms != '' AND created_by = %s
                 """
                 df1 = pd.read_sql_query(patient_query, patients_conn, params=[doctor_id])
                 
@@ -80,7 +80,7 @@ class PandasAnalytics:
                 """
                 df2 = pd.read_sql_query(diagnosis_query, diagnosis_conn)
                 # Filter df2 by patients that belong to this doctor
-                patient_ids_query = "SELECT patient_id FROM patients WHERE created_by = ?"
+                patient_ids_query = "SELECT patient_id FROM patients WHERE created_by = %s"
                 doctor_patients = pd.read_sql_query(patient_ids_query, patients_conn, params=[doctor_id])
                 if not doctor_patients.empty:
                     df2 = df2[df2['patient_id'].isin(doctor_patients['patient_id'])]
@@ -151,14 +151,14 @@ class PandasAnalytics:
     def get_patient_demographics(self, doctor_id=None):
         """Get patient demographics data"""
         try:
-            conn = sqlite3.connect(self.patients_db)
+            conn = db.connect(self.patients_db)
             
             # Filter by doctor if provided
             if doctor_id:
                 query = """
                 SELECT gender, age, created_at
                 FROM patients 
-                WHERE gender IS NOT NULL AND created_by = ?
+                WHERE gender IS NOT NULL AND created_by = %s
                 """
                 df = pd.read_sql_query(query, conn, params=[doctor_id])
             else:

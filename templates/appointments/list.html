@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointment Requests - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #1a2332; }
+        .wrap { max-width: 1120px; margin: 0 auto; padding: 1.5rem; }
+        .topbar { display: flex; justify-content: space-between; align-items: center;
+                  flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
+        .topbar h1 { margin: 0; font-size: 1.4rem; color: #0d1f35; }
+        .topbar p { margin: 0.25rem 0 0; color: #607080; font-size: 0.875rem; }
+        .alert { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.25rem;
+                 display: flex; align-items: center; gap: 0.6rem; font-size: 0.875rem;
+                 font-weight: 500; border: 1px solid; }
+        .alert-success { background: #e8f5ee; border-color: #b8dfc9; color: #1e5c3a; }
+        .alert-error   { background: #fdeaea; border-color: #f5c6c6; color: #8b2020; }
+        .alert-close { margin-left: auto; background: none; border: none;
+                       color: inherit; font-size: 1rem; cursor: pointer; opacity: 0.6; }
+        .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.1rem;
+               border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+               cursor: pointer; text-decoration: none; font-family: inherit; }
+        .btn-primary { background: #1976d2; color: #fff; }
+        .btn-primary:hover { background: #155a9e; }
+        .btn-ghost { background: #fff; color: #2c3e55; border: 1px solid #d0dae6; }
+        .btn-ghost:hover { background: #eef3f8; }
+        .btn-danger { background: #fff; color: #8b2020; border: 1px solid #f0b8b8; }
+        .btn-danger:hover { background: #fdeaea; }
+        .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                 gap: 1rem; margin-bottom: 1.5rem; }
+        .stat-card { background: #fff; border: 1px solid #d0dae6; border-radius: 10px;
+                     padding: 1rem 1.25rem; }
+        .stat-card.pending { border-left: 4px solid #b07d2e; }
+        .stat-card .num { font-size: 1.75rem; font-weight: 700; color: #0d1f35; }
+        .stat-card .lbl { font-size: 0.8rem; color: #607080; margin-top: 0.2rem; }
+        .card { background: #fff; border: 1px solid #d0dae6; border-radius: 10px;
+                padding: 1.25rem; margin-bottom: 1rem;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .card.pending { border-left: 4px solid #b07d2e; }
+        .card.scheduled { border-left: 4px solid #2e7d5a; }
+        .card.declined { border-left: 4px solid #8b2020; opacity: 0.78; }
+        .card.cancelled { border-left: 4px solid #90a4ae; opacity: 0.7; }
+        .card-head { display: flex; justify-content: space-between; align-items: flex-start;
+                     gap: 1rem; flex-wrap: wrap; }
+        .card-head h3 { margin: 0 0 0.25rem; font-size: 1rem; color: #0d1f35; }
+        .card-head .meta { font-size: 0.8rem; color: #607080; }
+        .card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+                        margin-top: 1rem; }
+        .badge { padding: 0.2rem 0.65rem; border-radius: 12px; font-size: 0.75rem;
+                 font-weight: 600; background: #eef3f8; color: #2c3e55; }
+        .badge-pending { background: #fdf3e3; color: #b07d2e; }
+        .badge-scheduled { background: #e8f5ee; color: #1e5c3a; }
+        .badge-declined { background: #fdeaea; color: #8b2020; }
+        .badge-cancelled { background: #eef1f4; color: #607080; }
+        .detail { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #eef2f7;
+                  font-size: 0.85rem; color: #2c3e55; }
+        .detail .label { font-weight: 600; color: #607080; }
+        .reply { margin-top: 0.75rem; font-size: 0.85rem; padding: 0.6rem 0.75rem;
+                 border-radius: 8px; background: #f4f7fb; color: #2c3e55; }
+        .moved { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem;
+                 color: #b07d2e; margin-top: 0.35rem; }
+        form.inline { display: inline-flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+        input[type="datetime-local"], textarea, input[type="text"] {
+            padding: 0.4rem 0.55rem; border: 1px solid #d0dae6; border-radius: 6px;
+            font-size: 0.8rem; font-family: inherit; color: #0d1f35; background: #fff; }
+        input[type="datetime-local"]:focus, textarea:focus, input[type="text"]:focus {
+            outline: none; border-color: #1976d2;
+            box-shadow: 0 0 0 2px rgba(25,118,210,0.12); }
+        textarea { min-width: 260px; min-height: 38px; resize: vertical; }
+        .empty { text-align: center; padding: 3rem 1.5rem; color: #607080;
+                 background: #fff; border: 1px dashed #d0dae6; border-radius: 10px; }
+        .empty i { font-size: 2rem; color: #b0bec5; display: block; margin-bottom: 0.75rem; }
+        .empty h3 { margin: 0 0 0.5rem; color: #2c3e55; font-size: 1rem; }
+        .legend { font-size: 0.8rem; color: #607080; margin-bottom: 1rem;
+                  background: #f4f7fb; border: 1px solid #e3eaf2; border-radius: 8px;
+                  padding: 0.7rem 0.9rem; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="topbar">
+        <div>
+            <h1><i class="fas fa-calendar-check" style="color:#2e7d9f;"></i> Appointment Requests</h1>
+            <p>
+                {% if is_admin_view %}
+                    Admin view &mdash; requests addressed to every doctor.
+                {% else %}
+                    Requests addressed to you
+                    {% if current_user.doctor_id %}
+                        &middot; <strong>{{ current_user.doctor_id }}</strong>
+                    {% endif %}
+                {% endif %}
+            </p>
+        </div>
+        <div style="display:flex;gap:0.6rem;align-items:center;">
+            <a href="/enhanced/dashboard" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> Dashboard</a>
+            <a href="/patients/" class="btn btn-ghost"><i class="fas fa-users"></i> Patients</a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                    <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
+                    {{ message }}
+                    <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if session.get('appointment_success') %}
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i>
+            {{ session.pop('appointment_success') }}
+            <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    {% endif %}
+
+    <div class="stats">
+        <div class="stat-card pending">
+            <div class="num">{{ pending_count }}</div>
+            <div class="lbl">Waiting on you</div>
+        </div>
+        <div class="stat-card">
+            <div class="num">{{ scheduled_count }}</div>
+            <div class="lbl">Booked</div>
+        </div>
+        <div class="stat-card">
+            <div class="num">{{ today_count }}</div>
+            <div class="lbl">Today</div>
+        </div>
+    </div>
+
+    <p class="legend">
+        <i class="fas fa-circle-info"></i>
+        A request is not an appointment until you accept it. Until then the patient
+        sees it as pending and nothing is booked in your diary.
+    </p>
+
+    {% if not appointments %}
+        <div class="empty">
+            <i class="fas fa-calendar-times"></i>
+            <h3>{% if filtered %}Nothing in this view{% else %}No appointment requests{% endif %}</h3>
+            <p>
+                {% if filtered %}
+                    <a href="{{ url_for('appointments.appointment_list') }}"
+                       style="color:#1976d2;">Show all appointments</a>
+                {% elif is_admin_view %}
+                    No patient has requested an appointment yet.
+                {% else %}
+                    When a patient requests an appointment with you it will appear here
+                    for you to accept, decline or move.
+                {% endif %}
+            </p>
+        </div>
+    {% elif filtered %}
+        <p style="font-size:0.85rem;color:#607080;margin:0 0 1rem;">
+            Showing {{ appointments|length }} filtered.
+            <a href="{{ url_for('appointments.appointment_list') }}"
+               style="color:#1976d2;">Show all appointments</a>
+        </p>
+    {% endif %}
+
+    {% for a in appointments %}
+        <div class="card {{ a.status }}">
+            <div class="card-head">
+                <div>
+                    <h3>
+                        {{ a.patient_name or 'Patient record removed' }}
+                        {% if a.patient_id %}
+                            <span style="color:#90a4ae;font-size:0.8rem;font-weight:500;">&middot; {{ a.patient_id }}</span>
+                        {% endif %}
+                    </h3>
+                    <div class="meta">
+                        {% if a.patient_email %}
+                            <i class="fas fa-envelope"></i>
+                            <a href="mailto:{{ a.patient_email }}"
+                               style="color:#1976d2;text-decoration:none;">{{ a.patient_email }}</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="badge badge-{{ a.status }}">{{ a.status|replace('_', ' ') }}</span>
+            </div>
+
+            <div class="detail">
+                {% if a.status == 'pending' %}
+                    <div>
+                        <span class="label">Patient asked for</span>
+                        <strong>{{ a.appointment_date|when }}</strong>
+                    </div>
+                {% else %}
+                    <div>
+                        <span class="label">Booked for</span>
+                        <strong>{{ a.appointment_date|when }}</strong>
+                    </div>
+                    {% if a.requested_date and a.requested_date != a.appointment_date %}
+                        <div class="moved">
+                            <i class="fas fa-arrow-right-arrow-left"></i>
+                            Moved from what the patient asked for
+                            ({{ a.requested_date|when }})
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                {% if a.reason %}
+                    <div style="margin-top:0.5rem;">
+                        <span class="label">Reason for visit</span><br>
+                        {{ a.reason }}
+                    </div>
+                {% endif %}
+
+                {% if a.doctor_note %}
+                    <div class="reply">
+                        <i class="fas fa-comment-medical"></i>
+                        <span class="label">Note to the patient:</span> {{ a.doctor_note }}
+                    </div>
+                {% endif %}
+
+                {% if a.created_at %}
+                    <div style="margin-top:0.5rem;color:#90a4ae;font-size:0.78rem;">
+                        Requested {{ a.created_at|when('an unknown date') }}
+                        {% if a.responded_at %}
+                            &middot; answered {{ a.responded_at|when }}
+                        {% else %}
+                            &middot; <strong style="color:#b07d2e;">not yet answered</strong>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if a.status == 'pending' %}
+                <div class="card-actions">
+                    <!-- Accept as-is: no date field, so the slot the patient asked
+                         for is confirmed unchanged. -->
+                    <form method="POST" action="{{ url_for('appointments.accept_appointment', appointment_id=a.id) }}"
+                          style="display:inline-flex;gap:0.4rem;align-items:center;">
+                        <input type="text" name="doctor_note" placeholder="Note (optional)"
+                               style="width:190px;">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-check"></i> Accept
+                        </button>
+                    </form>
+
+                    <!-- Accept but move the slot. -->
+                    <form method="POST" action="{{ url_for('appointments.reschedule_appointment', appointment_id=a.id) }}"
+                          style="display:inline-flex;gap:0.4rem;align-items:center;">
+                        <input type="datetime-local" name="appointment_date" required>
+                        <button type="submit" class="btn btn-ghost btn-sm">
+                            <i class="fas fa-calendar-day"></i> Accept at another time
+                        </button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('appointments.decline_appointment', appointment_id=a.id) }}"
+                          style="display:inline-flex;gap:0.4rem;align-items:center;">
+                        <input type="text" name="doctor_note" placeholder="Reason (the patient sees this)"
+                               style="width:250px;">
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            <i class="fas fa-times"></i> Decline
+                        </button>
+                    </form>
+                </div>
+            {% elif a.status == 'scheduled' %}
+                <div class="card-actions">
+                    <form method="POST" action="{{ url_for('appointments.reschedule_appointment', appointment_id=a.id) }}"
+                          style="display:inline-flex;gap:0.4rem;align-items:center;">
+                        <input type="datetime-local" name="appointment_date" required>
+                        <button type="submit" class="btn btn-ghost btn-sm">
+                            <i class="fas fa-calendar-day"></i> Reschedule
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('appointments.cancel_appointment', appointment_id=a.id) }}">
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            <i class="fas fa-ban"></i> Cancel appointment
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+</body>
+</html>

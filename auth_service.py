@@ -1,4 +1,4 @@
-import sqlite3
+import db
 import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -9,7 +9,7 @@ class AuthService:
         self.create_default_user()
     
     def init_users_table(self):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,7 +23,7 @@ class AuthService:
     
     def create_default_user(self):
         # Create default doctor account
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         cursor = conn.execute('SELECT COUNT(*) FROM users WHERE username = ?', ('doctor',))
         if cursor.fetchone()[0] == 0:
             password_hash = generate_password_hash('password123')
@@ -33,7 +33,7 @@ class AuthService:
         conn.close()
     
     def validate_user(self, username, password):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         cursor = conn.execute('SELECT password_hash FROM users WHERE username = ?', (username,))
         row = cursor.fetchone()
         conn.close()
@@ -43,8 +43,8 @@ class AuthService:
         return False
     
     def get_user(self, username):
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('SELECT * FROM users WHERE username = ?', (username,))
         user = cursor.fetchone()
         conn.close()
@@ -54,13 +54,13 @@ class AuthService:
         """Create new user account"""
         try:
             password_hash = generate_password_hash(password)
-            conn = sqlite3.connect(self.db_file)
+            conn = db.connect(self.db_file)
             conn.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', 
                         (username, password_hash))
             conn.commit()
             conn.close()
             return True
-        except sqlite3.IntegrityError:
+        except db.IntegrityError:
             return False
         except Exception:
             return False

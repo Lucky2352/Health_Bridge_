@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
 ![Flask](https://img.shields.io/badge/Flask-Web%20Framework-black)
 ![FHIR](https://img.shields.io/badge/FHIR-R4-green)
-![Database](https://img.shields.io/badge/Database-SQLite-lightgrey)
+![Database](https://img.shields.io/badge/Database-PostgreSQL-336791)
 ![License](https://img.shields.io/badge/License-MIT-brightgreen)
 
 > **HealthBridge** is a next-generation Electronic Medical Records (EMR) system that **bridges traditional Indian AYUSH medicine (NAMASTE codes)** with **global healthcare standards (ICD-11 & FHIR R4)**, enabling true interoperability between ancient medical knowledge and modern clinical systems.
@@ -80,6 +80,8 @@ The project emphasizes:
 ### 🩺 Doctor Portal
 - Professional dashboard with analytics
 - Patient diagnosis entry
+- Treatment plan authoring & revision
+- Appointment requests: accept, decline or reschedule
 - Code search & translation
 - Doctor-patient relationship tracking
 - Reports & insights
@@ -87,7 +89,8 @@ The project emphasizes:
 ### 🧍 Patient Portal
 - Personal health dashboard
 - View diagnoses & prescriptions
-- Appointment management
+- Read-only treatment plan, with the prescribing doctor's details
+- Request appointments, and withdraw a request before it is answered
 - Profile & ABHA ID linking
 - Transparency with doctor details
 
@@ -133,7 +136,7 @@ The project emphasizes:
 |-----|-----------|
 | Backend | Python, Flask |
 | Auth | Flask-Login, JWT |
-| Database | SQLite |
+| Database | PostgreSQL (Neon) via psycopg 3 |
 | Frontend | HTML5, CSS3, JavaScript (ES6+) |
 | Interoperability | FHIR R4 |
 | APIs | WHO ICD-11 API |
@@ -162,16 +165,52 @@ pip install -r requirements.txt
 ```
 
 ## ⚙️ Configuration
-Create a .env file in the root directory:
+
+Everything is read from `.env` at startup (see `.env.example`):
+
 ```
+# Neon PostgreSQL - Neon console -> your project -> Connection Details
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/neondb?sslmode=require
+
+# "postgres" (default) uses DATABASE_URL.
+# "sqlite" falls back to the legacy local .db files.
+HB_DB_BACKEND=postgres
+
 SECRET_KEY=your_secret_key
 JWT_SECRET_KEY=your_jwt_secret
 ICD11_CLIENT_ID=your_who_client_id
 ICD11_CLIENT_SECRET=your_who_client_secret
 FLASK_ENV=development
 ```
+
 🔑 ICD-11 API Credentials:
 Get them from 👉 [https://icd.who.int/icdapi](https://icd.who.int/icdapi)
+
+### 🐘 Database layout
+
+The app historically used five separate SQLite files. Each one now maps to its
+own **PostgreSQL schema** inside the single Neon database, so existing
+unqualified table names keep working through `search_path`:
+
+| Legacy SQLite file | PostgreSQL schema |
+|--------------------|-------------------|
+| `patients.db`      | `patients`       |
+| `enhanced_auth.db` | `enhanced_auth`  |
+| `diagnosis.db`     | `diagnosis`      |
+| `fhir_data.db`     | `fhir_data`      |
+| `fhir_bundles.db`  | `fhir_bundles`   |
+
+Schemas and tables are created automatically on first connection. To copy any
+data still sitting in the old `.db` files across:
+
+```
+python migrate_sqlite_to_neon.py --dry-run   # preview
+python migrate_sqlite_to_neon.py             # copy rows
+python migrate_sqlite_to_neon.py --force     # wipe target schemas first
+```
+
+See `db.py` for the full list of SQLite→PostgreSQL dialect translations the
+compatibility layer performs.
 
 ## ▶️ Running the Application
 ```
@@ -190,19 +229,23 @@ http://127.0.0.1:5000
 | `/enhanced/signup`    | User registration                |
 | `/enhanced/dashboard` | Role-based dashboard             |
 | `/patients/`          | Patient management (Doctor only) |
+| `/treatments/`        | Treatment plans (Doctor only)    |
+| `/appointments/`      | Appointment requests (Doctor only) |
 | `/diagnosis`          | Save diagnosis                   |
 | `/search`             | NAMASTE + ICD-11 search          |
 | `/translate_code`     | Code translation                 |
 | `/fhir/`              | FHIR interoperability            |
 | `/reports/`           | Analytics dashboard              |
 | `/patient/records`    | Patient medical records          |
+| `/patient/treatments` | Patient's treatment plan (read-only) |
+| `/patient/appointments` | Book an appointment, track requests |
 | `/patient/profile`    | Profile & ABHA ID                |
 
 ## 🗄 Database Schema (Simplified)
 ```
-enhanced_auth.db
+schema "enhanced_auth"
 ```
-### Users
+### Users (`enhanced_users`)
 - id
 - role
 - patient_id
@@ -212,17 +255,64 @@ enhanced_auth.db
 
 ### Core Tables
 - Diagnoses → doctor_id ↔ patient_id ↔ codes
+- Treatments → doctor_id ↔ patient_id ↔ plan, status & schedule
 - Prescriptions → medications
-- Appointments → scheduling
+- Appointments → doctor_id ↔ patient_id ↔ requested slot, status & reply
 - Reports → analytics & documents
 
 All tables use foreign key constraints.
+
+### Treatment plans
+A treatment row carries both sides of the doctor/patient relationship:
+`treatments.doctor_id` says who prescribed it and `treatments.patient_id` says
+who it is for. That pair is the whole contract between the two sides:
+
+- `/treatments` is the **only** place a treatment is written, and it is closed to
+  patients by a blueprint-level guard. `doctor_id` comes from the session rather
+  than the form, so a doctor cannot forge a plan for another patient by editing
+  the POST body, and editing or deleting requires being the row's author (admins
+  excepted).
+- `/patient/treatments` and `/patient/api/treatments` are the **read** side. The
+  `patient_id` in every query comes from the session rather than the URL, and there
+  is no route anywhere in the patient portal that can write a treatment, so a
+  patient sees their plan and the name, ID and email of the doctor who wrote each
+  part of it, and can change none of it.
+
+### Appointment requests
+An appointment row also carries both sides of the relationship, but `status` is what
+makes it a workflow rather than a record. A booking does not exist the moment a
+patient submits a form: the row is created `pending` and only becomes `scheduled`
+once the doctor it was addressed to accepts it.
+
+```
+pending  ──accept──▶ scheduled ──reschedule──▶ scheduled
+   │                      │
+   ├──decline──▶ declined (terminal; patient may book again)
+   ├──cancel───▶ cancelled  (patient, while still unanswered)
+   └──cancel──────────────▶ cancelled  (doctor, once confirmed)
+```
+
+- `/patient/appointments` is the patient's side: pick any doctor, propose a slot and
+  give a reason. `patient_id` comes from the session and the doctor is validated
+  against the real list rather than trusted from the POST body, and the patient may
+  withdraw their own request only while it is still `pending` — cancelling a
+  confirmed appointment is the doctor's decision.
+- `/appointments` is the doctor's side, and it is where the acceptance happens. A
+  blueprint-level guard closes it to patients, `doctor_id` comes from the session,
+  and answering a request requires being the doctor the patient addressed (admins
+  excepted), so two doctors cannot accept each other's patients.
+- `requested_date` is kept alongside `appointment_date`, so a reschedule shows the
+  doctor what was originally asked for against what they actually agreed to, and
+  shows the patient that their appointment was moved.
 
 ## 🔒 Security Features
 - No hardcoded credentials
 - Environment-based secrets
 - Secure password hashing
 - Role-based access control
+- Read-only patient portal (session-scoped record IDs; the only writes are a patient's own appointment request and its withdrawal)
+- Appointment acceptance requires the addressed doctor
+- Record ownership enforced on reads *and* writes
 - Input validation
 - ABHA ID formatting & validation
 - Database referential integrity

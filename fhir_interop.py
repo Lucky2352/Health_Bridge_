@@ -1,5 +1,5 @@
 import json
-import sqlite3
+import db
 from datetime import datetime
 from flask import jsonify
 import uuid
@@ -13,7 +13,7 @@ class FHIRInteroperability:
         self.init_database()
     
     def init_database(self):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         
         # FHIR Bundles table
         conn.execute('''
@@ -31,8 +31,8 @@ class FHIRInteroperability:
         
         # Add upload_date column if it doesn't exist (for existing databases)
         try:
-            conn.execute('ALTER TABLE fhir_bundles ADD COLUMN upload_date DATETIME DEFAULT CURRENT_TIMESTAMP')
-        except sqlite3.OperationalError:
+            conn.execute('ALTER TABLE fhir_bundles ADD COLUMN upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+        except db.OperationalError:
             pass  # Column already exists
         
         # FHIR Resources table
@@ -48,7 +48,7 @@ class FHIRInteroperability:
                 display_name TEXT,
                 mapped_icd11 TEXT,
                 mapped_namaste TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (bundle_id) REFERENCES fhir_bundles (bundle_id)
             )
         ''')
@@ -69,7 +69,7 @@ class FHIRInteroperability:
         bundle_type = bundle_data.get('type', 'collection')
         entries = bundle_data.get('entry', [])
         
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         
         # Store bundle metadata
         conn.execute('''
@@ -99,7 +99,7 @@ class FHIRInteroperability:
         # Add ABHA ID column if it doesn't exist
         try:
             conn.execute('ALTER TABLE fhir_resources ADD COLUMN patient_abha_id TEXT')
-        except sqlite3.OperationalError:
+        except db.OperationalError:
             pass  # Column already exists
         
         # Extract condition codes for mapping
@@ -163,8 +163,8 @@ class FHIRInteroperability:
     
     def get_bundle_summary(self, bundle_id):
         """Get summary of processed bundle"""
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         
         # Get bundle info
         bundle_cursor = conn.execute('''
@@ -198,7 +198,7 @@ class FHIRInteroperability:
     
     def map_condition_to_codes(self, resource_id, icd11_code=None, namaste_code=None):
         """Map FHIR condition to ICD-11/NAMASTE codes"""
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         conn.execute('''
             UPDATE fhir_resources 
             SET mapped_icd11 = ?, mapped_namaste = ?
@@ -213,8 +213,8 @@ class FHIRInteroperability:
         new_bundles = self.bundle_storage.get_all_bundles()
         
         # Also get from legacy system and merge
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('''
             SELECT bundle_id, bundle_type, total_entries, 
                    COALESCE(upload_date, '2024-01-01 00:00:00') as upload_date, 

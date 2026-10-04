@@ -4,268 +4,361 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patient Dashboard - HealthBridge EMR</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/futuristic-dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            position: relative;
+            border: 1px solid;
+            animation: slideDown 0.3s ease;
+        }
+        .alert-success { background: #e8f5ee; border-color: #b8dfc9; color: #1e5c3a; }
+        .alert-error   { background: #fdeaea; border-color: #f5c6c6; color: #8b2020; }
+        .alert-close { position:absolute; right:0.75rem; background:none; border:none; color:inherit; font-size:1rem; cursor:pointer; opacity:0.6; }
+        .alert-close:hover { opacity:1; }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+        .section-title { font-size:1rem; font-weight:600; color:#1a2332; margin-bottom:1.25rem; display:flex; align-items:center; gap:0.5rem; }
+        .section-title i { color:#2e7d9f; }
+    </style>
 </head>
 <body>
-    <div class="dashboard-container">
-        <div class="dashboard-sidebar">
-            <div class="sidebar-header">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <img src="/static/logo.png" alt="HealthBridge Logo" style="width: 32px; height: 32px; object-fit: contain;">
-                    <h4 style="margin: 0;">HealthBridge</h4>
-                </div>
-                <small>Patient Portal</small>
+<div class="dashboard-container">
+    <div class="dashboard-sidebar">
+        <div class="sidebar-header">
+            <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:0.3rem;">
+                <img src="/static/logo.png" alt="HealthBridge" style="width:28px;height:28px;object-fit:contain;">
+                <h4 style="margin:0;">HealthBridge</h4>
             </div>
-            <nav class="sidebar-nav">
-                <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                <a href="/patient/records" class="nav-link"><i class="fas fa-file-medical"></i> My Records</a>
-                <a href="/patient/prescriptions" class="nav-link"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
-                <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
-                <a href="/patient/profile" class="nav-link"><i class="fas fa-user-circle"></i> Profile & ABHA</a>
-                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
-                <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
-            </nav>
+            <small>Patient Portal</small>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="/patient/records" class="nav-link"><i class="fas fa-file-medical"></i> My Records</a>
+            <a href="/patient/treatments" class="nav-link"><i class="fas fa-heartbeat"></i> My Treatment Plan</a>
+            <a href="/patient/prescriptions" class="nav-link"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
+            <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
+            <a href="/patient/profile" class="nav-link"><i class="fas fa-user-circle"></i> Profile & ABHA</a>
+            <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0.75rem 0;">
+            <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-navbar">
+            <div style="display:flex;align-items:center;">
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()"><i class="fas fa-bars"></i></button>
+                <h5><i class="fas fa-heartbeat"></i> Patient Dashboard</h5>
+            </div>
+            <div style="display:flex;align-items:center;">
+                <span>Welcome, <strong>{{ current_user.full_name or current_user.username }}</strong></span>
+                <span class="role-badge patient"><i class="fas fa-user"></i> Patient</span>
+            </div>
         </div>
 
-        <div class="main-content">
-            <div class="top-navbar">
-                <div>
-                    <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <h5><i class="fas fa-user-heart"></i> Patient Dashboard</h5>
-                </div>
-                <div>
-                    <span>Welcome, <strong>{{ current_user.full_name or current_user.username or current_user.email }}</strong></span>
-                    <span class="role-badge"><i class="fas fa-user"></i> Patient</span>
-                </div>
-            </div>
-
-            <div class="content-area">
-                <!-- Flash Messages -->
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}" id="flashMessage">
-                                <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
-                                {{ message }}
-                                <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
-                
-                <!-- Session Success Messages -->
-                {% if session.get('login_success') %}
-                    <div class="alert alert-success" id="sessionMessage">
-                        <i class="fas fa-check-circle"></i>
-                        {{ session.pop('login_success') }}
-                        <button type="button" class="alert-close" onclick="closeAlert()">&times;</button>
-                    </div>
+        <div class="content-area">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                            <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
+                            {{ message }}
+                            <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+                        </div>
+                    {% endfor %}
                 {% endif %}
-                
-                <div class="dashboard-stats">
-                    <div class="dashboard-stat-card" onclick="window.location.href='/patient/records'" style="cursor: pointer;">
-                        <div class="dashboard-stat-icon"><i class="fas fa-file-medical-alt"></i></div>
-                        <div class="dashboard-stat-number" id="recordsCount">0</div>
+            {% endwith %}
+
+            {% if session.get('login_success') %}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    {{ session.pop('login_success') }}
+                    <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+                </div>
+            {% endif %}
+
+            <!-- Stats -->
+            <div class="dashboard-stats">
+                <div class="dashboard-stat-card" onclick="location.href='/patient/records'" style="cursor:pointer;">
+                    <div class="dashboard-stat-icon"><i class="fas fa-file-medical-alt" style="color:#2e7d9f;"></i></div>
+                    <div>
+                        <div class="dashboard-stat-number" id="recordsCount">—</div>
                         <div class="dashboard-stat-label">Health Records</div>
                     </div>
-                    <div class="dashboard-stat-card" onclick="window.location.href='/patient/prescriptions'" style="cursor: pointer;">
-                        <div class="dashboard-stat-icon"><i class="fas fa-pills"></i></div>
-                        <div class="dashboard-stat-number" id="prescriptionsCount">0</div>
+                </div>
+                <div class="dashboard-stat-card" onclick="location.href='/patient/prescriptions'" style="cursor:pointer;">
+                    <div class="dashboard-stat-icon" style="background:#fdf3e3;"><i class="fas fa-pills" style="color:#b07d2e;"></i></div>
+                    <div>
+                        <div class="dashboard-stat-number" id="prescriptionsCount">—</div>
                         <div class="dashboard-stat-label">Prescriptions</div>
                     </div>
-                    <div class="dashboard-stat-card" onclick="window.location.href='/patient/appointments'" style="cursor: pointer;">
-                        <div class="dashboard-stat-icon"><i class="fas fa-calendar-check"></i></div>
-                        <div class="dashboard-stat-number" id="appointmentsCount">0</div>
+                </div>
+                <div class="dashboard-stat-card" onclick="location.href='/patient/appointments'" style="cursor:pointer;">
+                    <div class="dashboard-stat-icon" style="background:#e8f5ee;"><i class="fas fa-calendar-check" style="color:#2e7d5a;"></i></div>
+                    <div>
+                        <div class="dashboard-stat-number" id="appointmentsCount">—</div>
                         <div class="dashboard-stat-label">Appointments</div>
                     </div>
-                    <div class="dashboard-stat-card">
-                        <div class="dashboard-stat-icon"><i class="fas fa-history"></i></div>
-                        <div class="dashboard-stat-number" id="visitsCount">0</div>
+                </div>
+                <div class="dashboard-stat-card" onclick="location.href='/patient/appointments'" style="cursor:pointer;">
+                    <div class="dashboard-stat-icon" style="background:#fdf3e3;"><i class="fas fa-hourglass-half" style="color:#b07d2e;"></i></div>
+                    <div>
+                        <div class="dashboard-stat-number" id="pendingAppointmentsCount">—</div>
+                        <div class="dashboard-stat-label">Awaiting Doctor</div>
+                    </div>
+                </div>
+                <div class="dashboard-stat-card" onclick="location.href='/patient/treatments'" style="cursor:pointer;">
+                    <div class="dashboard-stat-icon" style="background:#e3f0fb;"><i class="fas fa-heartbeat" style="color:#1976d2;"></i></div>
+                    <div>
+                        <div class="dashboard-stat-number" id="treatmentsCount">—</div>
+                        <div class="dashboard-stat-label">My Treatments</div>
+                    </div>
+                </div>
+                <div class="dashboard-stat-card">
+                    <div class="dashboard-stat-icon" style="background:#f3eef8;"><i class="fas fa-history" style="color:#6b4fa0;"></i></div>
+                    <div>
+                        <div class="dashboard-stat-number" id="visitsCount">—</div>
                         <div class="dashboard-stat-label">Total Visits</div>
                     </div>
                 </div>
+            </div>
 
-                <div class="doctor-tools">
-                    <h3><i class="fas fa-heart"></i> My Health Dashboard</h3>
-                    <div class="dashboard-tools">
-                        <div class="dashboard-tool-card">
-                            <div class="dashboard-tool-icon"><i class="fas fa-file-medical"></i></div>
-                            <div class="dashboard-tool-title">My Health Records</div>
-                            <div class="dashboard-tool-description">View your complete medical history, test results, and doctor's notes with secure access</div>
-                            <button class="btn btn-primary" onclick="window.location.href='/patient/records'"><i class="fas fa-arrow-right"></i> View Records</button>
-                        </div>
-                        <div class="dashboard-tool-card">
-                            <div class="dashboard-tool-icon"><i class="fas fa-prescription-bottle"></i></div>
-                            <div class="dashboard-tool-title">Prescriptions</div>
-                            <div class="dashboard-tool-description">Track your medications, dosages, and prescription history from healthcare providers</div>
-                            <button class="btn btn-primary" onclick="window.location.href='/patient/prescriptions'"><i class="fas fa-arrow-right"></i> View Prescriptions</button>
-                        </div>
-                        <div class="dashboard-tool-card">
-                            <div class="dashboard-tool-icon"><i class="fas fa-calendar-check"></i></div>
-                            <div class="dashboard-tool-title">Appointments</div>
-                            <div class="dashboard-tool-description">Manage your healthcare appointments and view upcoming consultations</div>
-                            <button class="btn btn-primary" onclick="window.location.href='/patient/appointments'"><i class="fas fa-arrow-right"></i> View Appointments</button>
-                        </div>
-                        <div class="dashboard-tool-card">
-                            <div class="dashboard-tool-icon"><i class="fas fa-user-circle"></i></div>
-                            <div class="dashboard-tool-title">Profile & ABHA ID</div>
-                            <div class="dashboard-tool-description">Manage your personal information and link your ABHA ID for seamless healthcare access</div>
-                            <button class="btn btn-primary" onclick="window.location.href='/patient/profile'"><i class="fas fa-arrow-right"></i> Manage Profile</button>
-                        </div>
-                    </div>
+            <!-- Records -->
+            <div class="section-title"><i class="fas fa-file-medical"></i> My Health Records</div>
+            <div id="recordsList">
+                <div style="text-align:center;padding:2rem;color:#607080;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;margin-bottom:0.75rem;"></i>
+                    <p>Loading records…</p>
+                </div>
+            </div>
+
+            <!-- Treatment plan -->
+            <div class="section-title" style="margin-top:2rem;">
+                <i class="fas fa-heartbeat"></i> My Treatment Plan
+                <span style="margin-left:auto;font-size:0.75rem;font-weight:500;color:#607080;">
+                    <i class="fas fa-lock"></i> decided by your doctor &middot; view only
+                </span>
+            </div>
+            <div id="treatmentsList">
+                <div style="text-align:center;padding:2rem;color:#607080;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;margin-bottom:0.75rem;"></i>
+                    <p>Loading your treatment plan…</p>
+                </div>
+            </div>
+
+            <!-- Treating doctors -->
+            <div class="section-title" style="margin-top:2rem;">
+                <i class="fas fa-user-md"></i> My Doctors
+            </div>
+            <div id="doctorsList">
+                <div style="text-align:center;padding:2rem;color:#607080;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem;margin-bottom:0.75rem;"></i>
+                    <p>Loading doctor details…</p>
                 </div>
             </div>
         </div>
     </div>
-    <script>
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
-            const sidebar = document.querySelector('.dashboard-sidebar');
-            const toggle = document.querySelector('.mobile-menu-toggle');
-            
-            if (!sidebar.contains(event.target) && !toggle.contains(event.target)) {
-                sidebar.classList.remove('mobile-open');
-            }
-        });
+</div>
 
-        // Load dashboard statistics
-        document.addEventListener('DOMContentLoaded', async function() {
-            const recordsCountElement = document.getElementById('recordsCount');
-            const prescriptionsCountElement = document.getElementById('prescriptionsCount');
-            const appointmentsCountElement = document.getElementById('appointmentsCount');
-            const visitsCountElement = document.getElementById('visitsCount');
-            
-            // Set loading state
-            recordsCountElement.textContent = 'Loading...';
-            
-            try {
-                const response = await fetch('/patient/api/dashboard-stats');
-                const stats = await response.json();
-                
-                // Animate counts
-                animateCount(recordsCountElement, stats.records || 0);
-                animateCount(prescriptionsCountElement, stats.prescriptions || 0);
-                animateCount(appointmentsCountElement, stats.appointments || 0);
-                animateCount(visitsCountElement, stats.visits || 0);
-                
-            } catch (error) {
-                // Set all counts to 0 on error
-                recordsCountElement.textContent = '0';
-                prescriptionsCountElement.textContent = '0';
-                appointmentsCountElement.textContent = '0';
-                visitsCountElement.textContent = '0';
-            }
-        });
-        
-        // Animate number counting
-        function animateCount(element, targetCount) {
-            let currentCount = 0;
-            const increment = Math.max(1, Math.ceil(targetCount / 20));
-            
-            const countAnimation = setInterval(() => {
-                currentCount += increment;
-                if (currentCount >= targetCount) {
-                    currentCount = targetCount;
-                    clearInterval(countAnimation);
-                }
-                element.textContent = currentCount;
-            }, 50);
+<script>
+    document.addEventListener('click', function(e) {
+        const sidebar = document.querySelector('.dashboard-sidebar');
+        const toggle = document.querySelector('.mobile-menu-toggle');
+        if (toggle && !sidebar.contains(e.target) && !toggle.contains(e.target))
+            sidebar.classList.remove('mobile-open');
+    });
+
+    // Record and treatment text is written by clinicians, so escape before injecting.
+    const escape = s => String(s ?? '').replace(/[&<>"]/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+    ));
+    const fmtDate = value => {
+        if (!value) return '';
+        const d = new Date(value);
+        return isNaN(d) ? escape(value) : d.toLocaleDateString();
+    };
+    // Keep in step with TREATMENT_STATUSES in diagnosis_models.py.
+    const STATUS_COLOUR = {
+        active:       { bg: '#e8f5ee', fg: '#1e5c3a' },
+        completed:    { bg: '#e3f0fb', fg: '#155a9e' },
+        discontinued: { bg: '#fdeaea', fg: '#8b2020' },
+        on_hold:      { bg: '#fdf3e3', fg: '#b07d2e' },
+    };
+
+    function renderTreatments(items) {
+        const list = document.getElementById('treatmentsList');
+
+        if (!items || items.length === 0) {
+            list.innerHTML = `
+                <div style="text-align:center;padding:2.5rem;color:#607080;background:#ffffff;border:1px dashed #d0dae6;border-radius:10px;">
+                    <i class="fas fa-heartbeat" style="font-size:2rem;margin-bottom:0.75rem;color:#b0bec5;"></i>
+                    <h4 style="color:#2c3e55;margin:0 0 0.5rem 0;">No treatments yet</h4>
+                    <p style="margin:0;">Any treatment your doctor starts for you appears here.</p>
+                </div>`;
+            return;
         }
 
-        // Close alert function
-        function closeAlert() {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                alert.style.opacity = '0';
-                alert.style.transform = 'translateY(-20px)';
-                setTimeout(() => alert.remove(), 300);
-            });
-        }
-        
-        // Auto-hide alerts after 5 seconds
-        document.addEventListener('DOMContentLoaded', function() {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                setTimeout(() => {
-                    if (alert.parentNode) {
-                        alert.style.opacity = '0';
-                        alert.style.transform = 'translateY(-20px)';
-                        setTimeout(() => alert.remove(), 300);
-                    }
-                }, 5000);
-            });
-        });
+        list.innerHTML = items.map(t => {
+            const status = String(t.status || 'active').toLowerCase();
+            const badge = STATUS_COLOUR[status] || STATUS_COLOUR.active;
+            const fields = [
+                t.medication_name ? ['Medication', t.medication_name] : null,
+                t.dosage ? ['Dosage', t.dosage] : null,
+                t.frequency ? ['Frequency', t.frequency] : null,
+                t.duration ? ['Duration', t.duration] : null,
+                t.follow_up_date ? ['Follow-up', fmtDate(t.follow_up_date)] : null,
+            ].filter(Boolean);
 
-        // Add CSS for alerts and ripple animation
-        const style = document.createElement('style');
-        style.textContent = `
-            .alert {
-                padding: 1rem 1.5rem;
-                border-radius: 12px;
-                margin-bottom: 1.5rem;
-                display: flex;
-                align-items: center;
-                gap: 0.75rem;
-                font-weight: 500;
-                position: relative;
-                transition: all 0.3s ease;
-                backdrop-filter: blur(20px);
-                border: 1px solid;
-                animation: slideInDown 0.5s ease-out;
+            return `
+            <div style="background:#ffffff;border:1px solid #d0dae6;border-left:4px solid #1976d2;border-radius:10px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.75rem;">
+                    <div>
+                        <h4 style="color:#0d1f35;margin:0 0 0.4rem 0;">${escape(t.title)}</h4>
+                        <p style="color:#2c3e55;margin:0;font-size:0.9rem;">
+                            by Dr. ${escape(t.doctor_name || 'a doctor no longer on this system')}
+                        </p>
+                        <p style="color:#607080;margin:0.2rem 0 0 0;font-size:0.8rem;">Doctor ID: ${escape(t.doctor_id || 'N/A')}</p>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="background:${badge.bg};color:${badge.fg};padding:0.25rem 0.75rem;border-radius:12px;font-size:0.8rem;font-weight:600;text-transform:capitalize;">
+                            ${escape(String(t.status || '').replace(/_/g, ' '))}
+                        </span>
+                        <p style="color:#607080;margin:0.5rem 0 0 0;font-size:0.8rem;">${fmtDate(t.created_at)}</p>
+                    </div>
+                </div>
+                ${fields.length ? `
+                    <div style="display:flex;flex-wrap:wrap;gap:1.5rem;font-size:0.85rem;color:#2c3e55;">
+                        ${fields.map(([k, v]) => `<span><strong>${k}:</strong> ${escape(v)}</span>`).join('')}
+                    </div>` : ''}
+                ${t.instructions ? `
+                    <p style="color:#2c3e55;margin:0.75rem 0 0 0;padding:0.75rem;background:#f0f6fc;border-radius:8px;">
+                        <i class="fas fa-info-circle" style="color:#2e7d9f;"></i>
+                        <strong>How to take this:</strong> ${escape(t.instructions)}
+                    </p>` : ''}
+                ${t.description ? `<p style="color:#2c3e55;margin:0.75rem 0 0 0;font-style:italic;padding-top:0.75rem;border-top:1px solid #e8edf3;">${escape(t.description)}</p>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    function renderDoctors(doctors) {
+        const list = document.getElementById('doctorsList');
+
+        if (!doctors || doctors.length === 0) {
+            list.innerHTML = `
+                <div style="text-align:center;padding:2rem;color:#607080;background:#ffffff;border:1px dashed #d0dae6;border-radius:10px;">
+                    <i class="fas fa-user-md" style="font-size:1.75rem;margin-bottom:0.75rem;color:#b0bec5;"></i>
+                    <p style="margin:0;">A doctor appears here once they start a treatment plan for you.</p>
+                </div>`;
+            return;
+        }
+
+        list.innerHTML = doctors.map(d => `
+            <div style="background:#ffffff;border:1px solid #d0dae6;border-left:4px solid #2e7d5a;border-radius:10px;padding:1.25rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;flex-wrap:wrap;">
+                    <div>
+                        <h4 style="color:#0d1f35;margin:0 0 0.35rem 0;">${d.doctor_name ? 'Dr. ' + escape(d.doctor_name) : 'Doctor unavailable'}</h4>
+                        <p style="color:#607080;margin:0;font-size:0.8rem;">Doctor ID: ${escape(d.doctor_id || 'N/A')}</p>
+                        ${d.doctor_email ? `
+                            <p style="color:#2c3e55;margin:0.35rem 0 0 0;font-size:0.85rem;">
+                                <i class="fas fa-envelope"></i>
+                                <a href="mailto:${escape(d.doctor_email)}" style="color:#1976d2;text-decoration:none;">${escape(d.doctor_email)}</a>
+                            </p>` : ''}
+                    </div>
+                    <div style="text-align:right;font-size:0.8rem;color:#607080;">
+                        <div><strong style="color:#0d1f35;">${escape(d.active_count ?? 0)}</strong> active treatment(s)</div>
+                        <div><strong style="color:#0d1f35;">${escape(d.treatment_count ?? 0)}</strong> in total</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        // Stats
+        try {
+            const r = await fetch('/patient/api/dashboard-stats');
+            const s = await r.json();
+            document.getElementById('recordsCount').textContent      = s.records ?? 0;
+            document.getElementById('prescriptionsCount').textContent = s.prescriptions ?? 0;
+            document.getElementById('appointmentsCount').textContent  = s.appointments ?? 0;
+            document.getElementById('pendingAppointmentsCount').textContent = s.pending_appointments ?? 0;
+            document.getElementById('visitsCount').textContent        = s.visits ?? 0;
+            document.getElementById('treatmentsCount').textContent   = s.treatments ?? 0;
+        } catch {
+            ['recordsCount','prescriptionsCount','appointmentsCount','pendingAppointmentsCount','visitsCount','treatmentsCount']
+                .forEach(id => document.getElementById(id).textContent = '0');
+        }
+
+        // Records
+        const recordsList = document.getElementById('recordsList');
+        try {
+            const res = await fetch('/patient/api/diagnoses');
+            const data = await res.json();
+            if (data.success && data.diagnoses && data.diagnoses.length > 0) {
+                recordsList.innerHTML = data.diagnoses.map(d => `
+                    <div style="background:#ffffff;border:1px solid #d0dae6;border-left:4px solid #1976d2;border-radius:10px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.75rem;">
+                            <div>
+                                <h4 style="color:#0d1f35;margin:0 0 0.4rem 0;">${escape(d.condition_name)}</h4>
+                                <p style="color:#2c3e55;margin:0;font-size:0.9rem;">by Dr. ${escape(d.doctor_name || 'Unknown')}</p>
+                                <p style="color:#607080;margin:0.2rem 0 0 0;font-size:0.8rem;">Doctor ID: ${escape(d.doctor_id || 'N/A')}</p>
+                            </div>
+                            <div style="text-align:right;">
+                                <span style="background:#e3f0fb;color:#1976d2;padding:0.25rem 0.75rem;border-radius:12px;font-size:0.8rem;font-weight:600;">${escape(d.condition_code || 'No Code')}</span>
+                                <p style="color:#607080;margin:0.5rem 0 0 0;font-size:0.8rem;">${new Date(d.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        ${d.notes ? `<p style="color:#2c3e55;margin:0;font-style:italic;padding-top:0.75rem;border-top:1px solid #e8edf3;">${escape(d.notes)}</p>` : ''}
+                    </div>
+                `).join('');
+
+                document.getElementById('recordsCount').textContent = data.diagnoses.length;
+            } else {
+                recordsList.innerHTML = `
+                    <div style="text-align:center;padding:2.5rem;color:#607080;background:#ffffff;border:1px solid #d0dae6;border-radius:10px;">
+                        <i class="fas fa-file-medical-alt" style="font-size:2rem;margin-bottom:0.75rem;color:#b0bec5;"></i>
+                        <h4 style="color:#2c3e55;margin:0 0 0.5rem 0;">No medical records yet</h4>
+                        <p style="margin:0;">Your records will appear here once a doctor adds them to your profile.</p>
+                    </div>`;
             }
-            
-            .alert-success {
-                background: rgba(81, 207, 102, 0.15);
-                border-color: rgba(81, 207, 102, 0.3);
-                color: #51cf66;
-            }
-            
-            .alert-error {
-                background: rgba(255, 107, 107, 0.15);
-                border-color: rgba(255, 107, 107, 0.3);
-                color: #ff6b6b;
-            }
-            
-            .alert-close {
-                position: absolute;
-                right: 1rem;
-                background: none;
-                border: none;
-                color: inherit;
-                font-size: 1.2rem;
-                cursor: pointer;
-                opacity: 0.7;
-                transition: opacity 0.3s ease;
-            }
-            
-            .alert-close:hover {
-                opacity: 1;
-            }
-            
-            @keyframes slideInDown {
-                from {
-                    opacity: 0;
-                    transform: translateY(-30px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-            
-            @keyframes ripple {
-                to {
-                    transform: scale(4);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-    </script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+        } catch {
+            recordsList.innerHTML = `
+                <div style="text-align:center;padding:2rem;color:#c0392b;background:#fdeaea;border:1px solid #f5c6c6;border-radius:10px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size:1.5rem;margin-bottom:0.5rem;"></i>
+                    <h4 style="color:#0d1f35;margin:0 0 0.25rem 0;">Error loading records</h4>
+                    <p style="margin:0;">Please refresh the page.</p>
+                </div>`;
+        }
+
+        // Treatments and the doctors who prescribed them. One request serves both
+        // panels, so the dashboard shows a plan and its author together.
+        try {
+            const tres = await fetch('/patient/api/treatments');
+            const tdata = await tres.json();
+            renderTreatments(tdata.treatments);
+            renderDoctors(tdata.doctors);
+            document.getElementById('treatmentsCount').textContent = tdata.total ?? 0;
+        } catch {
+            document.getElementById('treatmentsList').innerHTML = `
+                <div style="text-align:center;padding:2rem;color:#c0392b;background:#fdeaea;border:1px solid #f5c6c6;border-radius:10px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size:1.5rem;margin-bottom:0.5rem;"></i>
+                    <h4 style="color:#0d1f35;margin:0 0 0.25rem 0;">Error loading your treatment plan</h4>
+                    <p style="margin:0;">Please refresh the page.</p>
+                </div>`;
+            document.getElementById('doctorsList').innerHTML = '';
+        }
+
+        document.querySelectorAll('.alert').forEach(a => setTimeout(() => a.remove(), 5000));
+    });
+</script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
