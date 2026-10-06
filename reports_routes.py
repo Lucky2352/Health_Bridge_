@@ -1,22 +1,64 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, make_response
 from flask_login import login_required, current_user
-from analytics_engine import AnalyticsEngine
-from pandas_analytics import PandasAnalytics
+from enhanced_routes import is_clinician
+from db import singleton
+from patient_models import PatientDatabase
 from datetime import datetime
-import json
 from io import BytesIO
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib import colors
 
 # Create Blueprint
 reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
-# Initialize analytics engines
-analytics = AnalyticsEngine()
-pandas_analytics = PandasAnalytics()
+
+@reports_bp.before_request
+def require_clinician():
+    """Reports aggregate every patient's data, so they are clinician-only.
+
+    The dashboard also drives CSV/PDF export of the whole patient set, which a
+    patient account must not be able to pull down. Nothing in the patient portal
+    links here.
+    """
+    if not current_user.is_authenticated:
+        return redirect(url_for('enhanced_auth.login'))
+    if not is_clinician():
+        flash('Clinician access required', 'error')
+        return redirect(url_for('enhanced_auth.dashboard'))
+
+# Initialize analytics engines lazily.
+#
+# Both engines pull in pandas, which is the single most expensive import in the
+# project (~0.6s) and is only ever needed by these routes. Importing them here
+# rather than at module scope keeps it off the startup path; the engine objects
+# themselves are stateless, so one shared instance per process is enough.
+#
+# Named with a leading underscore so they cannot be confused with the route
+# functions below - an earlier version called one of these `get_pandas_analytics`,
+# which the /api/pandas-analytics route then shadowed.
+_analytics = None
+_pandas_analytics = None
+
+def _analytics_engine():
+    global _analytics
+    if _analytics is None:
+        from analytics_engine import AnalyticsEngine
+        _analytics = AnalyticsEngine()
+    return _analytics
+
+def _pandas_engine():
+    global _pandas_analytics
+    if _pandas_analytics is None:
+        from pandas_analytics import PandasAnalytics
+        _pandas_analytics = PandasAnalytics()
+    return _pandas_analytics
+
+@singleton
+def get_patient_db():
+    """Process-wide PatientDatabase.
+
+    Built on first use: constructing one ran its schema setup, and two request
+    handlers here were constructing a fresh one on every request.
+    """
+    return PatientDatabase()
 
 @reports_bp.route('/')
 @login_required
@@ -30,6 +72,7 @@ def reports_dashboard():
         user_role = 'doctor'
     
     # Get analytics data filtered by doctor
+    analytics = _analytics_engine()
     dashboard_data = analytics.get_dashboard_analytics(user_role, doctor_id)
     fhir_data = analytics.get_fhir_analytics(user_role, doctor_id)
     
@@ -45,6 +88,7 @@ def api_analytics():
     user_role = getattr(current_user, 'role', 'patient')
     user_id = getattr(current_user, 'id', None)
     
+    analytics = _analytics_engine()
     dashboard_data = analytics.get_dashboard_analytics(user_role, user_id)
     fhir_data = analytics.get_fhir_analytics(user_role, user_id)
     
@@ -62,7 +106,7 @@ def export_excel():
     user_id = getattr(current_user, 'id', None)
     
     try:
-        excel_file = analytics.generate_excel_report(user_role, user_id)
+        excel_file = _analytics_engine().generate_excel_report(user_role, user_id)
         
         response = make_response(excel_file.getvalue())
         response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -83,9 +127,17 @@ def export_pdf():
     
     try:
         # Get analytics data
+        analytics = _analytics_engine()
         dashboard_data = analytics.get_dashboard_analytics(user_role, user_id)
         fhir_data = analytics.get_fhir_analytics(user_role, user_id)
         
+        # Imported here rather than at module scope: reportlab is only needed to
+        # render a PDF, and importing it eagerly put ~0.3s on every server start.
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+
         # Create PDF
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -217,9 +269,7 @@ def export_pdf():
 def get_patient_reports():
     """API endpoint for patient reports data"""
     try:
-        from patient_models import PatientDatabase
-        
-        patient_db = PatientDatabase()
+        patient_db = get_patient_db()
         doctor_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
         
         # Get only doctor's patients and their diagnoses
@@ -227,8 +277,12 @@ def get_patient_reports():
         my_patients = [p for p in all_patients if p.get('created_by') == doctor_id]
         reports = []
         
+        # One query for every patient's diagnoses rather than one per patient.
+        diagnoses_by_patient = patient_db.get_diagnoses_for_patients(
+            [p['patient_id'] for p in my_patients])
+        
         for patient in my_patients:
-            diagnoses = patient_db.get_patient_diagnoses(patient['patient_id'])
+            diagnoses = diagnoses_by_patient.get(patient['patient_id'])
             
             if diagnoses:
                 for diagnosis in diagnoses:
@@ -274,9 +328,7 @@ def get_patient_reports():
 def export_patient_pdf(patient_id):
     """Export individual patient report to PDF"""
     try:
-        from patient_models import PatientDatabase
-        
-        patient_db = PatientDatabase()
+        patient_db = get_patient_db()
         patient = patient_db.get_patient(patient_id)
         
         if not patient:
@@ -290,6 +342,13 @@ def export_patient_pdf(patient_id):
             return redirect(url_for('reports.reports_dashboard'))
         
         diagnoses = patient_db.get_patient_diagnoses(patient_id)
+        
+        # Imported here rather than at module scope: reportlab is only needed to
+        # render a PDF, and importing it eagerly put ~0.3s on every server start.
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
         
         # Create PDF
         buffer = BytesIO()
@@ -385,7 +444,7 @@ def get_pandas_analytics():
         doctor_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
         
         # Get analytics data filtered by doctor
-        analytics_data = pandas_analytics.get_comprehensive_analytics(doctor_id)
+        analytics_data = _pandas_engine().get_comprehensive_analytics(doctor_id)
         return jsonify({
             'success': True,
             'data': analytics_data
@@ -405,7 +464,7 @@ def refresh_analytics():
         doctor_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
         
         # Get refreshed analytics data filtered by doctor
-        analytics_data = pandas_analytics.get_comprehensive_analytics(doctor_id)
+        analytics_data = _pandas_engine().get_comprehensive_analytics(doctor_id)
         return jsonify({
             'success': True,
             'message': 'Analytics data refreshed',

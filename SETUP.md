@@ -40,13 +40,28 @@ cp .env.example .env
 # - Configure other settings as needed
 ```
 
-### 5. Initialize Database
-```bash
-# The database will be created automatically on first run
-# Optional: Run migration scripts if needed
-python migrate_database.py
-python migrate_doctor_id.py
+### 5. Configure the Database
+
+The app runs on **PostgreSQL** (Neon) by default. Add your connection string to
+`.env` — get it from the Neon console under *your project → Connection Details*:
+
 ```
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/neondb?sslmode=require
+HB_DB_BACKEND=postgres
+```
+
+Schemas and tables are created automatically the first time the app connects,
+so there is nothing else to run for a fresh install.
+
+If you are upgrading from the old local-SQLite setup, copy the existing data
+across once:
+
+```bash
+python migrate_sqlite_to_neon.py --dry-run   # preview what will be copied
+python migrate_sqlite_to_neon.py             # copy the rows
+```
+
+To go back to the old files while debugging, set `HB_DB_BACKEND=sqlite`.
 
 ### 6. Run the Application
 ```bash
@@ -80,9 +95,15 @@ The application will be available at: http://localhost:8000
 ## Troubleshooting
 
 ### Database Issues
-If you encounter database errors, reset the diagnosis tables:
+If `DATABASE_URL` is missing or Neon is unreachable, the app will fail on the
+first query. Check that `.env` exists and that `HB_DB_BACKEND` is not set to
+`sqlite`. Set `HB_DB_BACKEND=sqlite` to run against the legacy `.db` files
+while you sort the connection out.
+
+To confirm the connection from the command line:
+
 ```bash
-python reset_diagnosis_tables.py
+python -c "import db; print(db.server_version())"
 ```
 
 ### Missing Dependencies

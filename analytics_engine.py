@@ -1,10 +1,6 @@
-import sqlite3
-from datetime import datetime, timedelta
-import json
-from collections import Counter
-import pandas as pd
+import db
 from io import BytesIO
-import base64
+import pandas as pd
 
 class AnalyticsEngine:
     def __init__(self):
@@ -25,7 +21,7 @@ class AnalyticsEngine:
     
     def get_patient_statistics(self, user_role, doctor_id=None):
         """Get patient count statistics"""
-        conn = sqlite3.connect(self.patient_db)
+        conn = db.connect(self.patient_db)
         
         if user_role == 'admin':
             # Admin sees all patients
@@ -56,14 +52,14 @@ class AnalyticsEngine:
     
     def get_disease_statistics(self, user_role, doctor_id=None):
         """Get most common diseases"""
-        conn = sqlite3.connect(self.patient_db)
+        conn = db.connect(self.patient_db)
         
         if user_role == 'admin':
             cursor = conn.execute('''
                 SELECT namaste_code, namaste_name, icd11_code, icd11_name, COUNT(*) as count
                 FROM patient_diagnoses 
                 WHERE namaste_code IS NOT NULL OR icd11_code IS NOT NULL
-                GROUP BY COALESCE(namaste_code, icd11_code)
+                GROUP BY 1, 2, 3, 4
                 ORDER BY count DESC
                 LIMIT 10
             ''')
@@ -73,7 +69,7 @@ class AnalyticsEngine:
                 FROM patient_diagnoses 
                 WHERE (namaste_code IS NOT NULL OR icd11_code IS NOT NULL)
                 AND created_by = ?
-                GROUP BY COALESCE(namaste_code, icd11_code)
+                GROUP BY 1, 2, 3, 4
                 ORDER BY count DESC
                 LIMIT 10
             ''', (doctor_id,))
@@ -94,7 +90,7 @@ class AnalyticsEngine:
     
     def get_demographics(self, user_role, doctor_id=None):
         """Get patient demographics"""
-        conn = sqlite3.connect(self.patient_db)
+        conn = db.connect(self.patient_db)
         
         if user_role == 'admin':
             # Gender distribution
@@ -154,7 +150,7 @@ class AnalyticsEngine:
     
     def get_recent_activities(self, user_role, doctor_id=None):
         """Get recent activities"""
-        conn = sqlite3.connect(self.patient_db)
+        conn = db.connect(self.patient_db)
         
         if user_role == 'admin':
             # Recent patients
@@ -213,7 +209,7 @@ class AnalyticsEngine:
     
     def get_monthly_trends(self, user_role, doctor_id=None):
         """Get monthly patient registration trends"""
-        conn = sqlite3.connect(self.patient_db)
+        conn = db.connect(self.patient_db)
         
         if user_role == 'admin':
             cursor = conn.execute('''
@@ -289,7 +285,7 @@ class AnalyticsEngine:
     
     def get_fhir_analytics(self, user_role, doctor_id=None):
         """Get FHIR bundle analytics"""
-        conn = sqlite3.connect(self.fhir_db)
+        conn = db.connect(self.fhir_db)
         
         if user_role == 'admin':
             # Total bundles

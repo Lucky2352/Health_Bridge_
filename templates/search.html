@@ -9,200 +9,89 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .search-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0,212,255,0.2);
-            border-radius: 20px;
-            padding: 3rem;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            animation: fadeInUp 0.8s ease-out;
+            max-width: 1100px;
+            margin: 1.75rem auto;
+            background: #ffffff;
+            border: 1px solid #d0dae6;
+            border-radius: 14px;
+            padding: 2rem;
+            box-shadow: 0 4px 16px rgba(15,39,68,0.10);
         }
         .search-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid rgba(0,212,255,0.2);
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 2px solid #e3f0ff;
         }
-        .search-title {
-            font-size: 2rem;
-            font-weight: 700;
-            background: linear-gradient(135deg,#00d4ff,#5b73ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 0;
-        }
+        .search-title { font-size:1.2rem; font-weight:700; color:#0d1f35; margin:0; display:flex; align-items:center; gap:0.5rem; }
+        .search-title i { color:#1976d2; }
         .back-btn {
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 25px;
-            color: rgba(255,255,255,0.8);
+            padding: 0.4rem 0.9rem;
+            background: #f4f7fb;
+            border: 1px solid #d0dae6;
+            border-radius: 7px;
+            color: #2c3e55;
             text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .back-btn:hover { background: rgba(255,255,255,0.15); color: white; transform: translateY(-2px); }
-
-        /* ── Search bar + autocomplete ── */
-        .search-row {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 1.5rem;
-            align-items: end;
-            margin-bottom: 2rem;
-        }
-        .search-input-wrap { position: relative; }
-        .search-label {
-            display: block;
-            color: rgba(255,255,255,0.8);
-            font-weight: 500;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .search-input {
-            width: 100%;
-            padding: 16px 20px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 15px;
-            color: white;
-            font-size: 1.1rem;
-            font-family: 'Inter', sans-serif;
-            transition: all 0.3s ease;
-            box-sizing: border-box;
-        }
-        .search-input:focus {
-            outline: none;
-            border-color: #00d4ff;
-            box-shadow: 0 0 0 3px rgba(0,212,255,0.1), 0 0 25px rgba(0,212,255,0.2);
-            background: rgba(255,255,255,0.08);
-        }
-        .search-input::placeholder { color: rgba(255,255,255,0.4); }
-
-        /* Autocomplete dropdown */
-        .autocomplete-dropdown {
-            position: absolute;
-            top: calc(100% + 6px);
-            left: 0; right: 0;
-            background: rgba(15,20,40,0.97);
-            border: 1px solid rgba(0,212,255,0.3);
-            border-radius: 12px;
-            z-index: 999;
-            max-height: 320px;
-            overflow-y: auto;
-            box-shadow: 0 16px 40px rgba(0,0,0,0.5);
-            display: none;
-        }
-        .autocomplete-dropdown.open { display: block; }
-        .ac-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.75rem 1rem;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            transition: background 0.15s;
-            gap: 1rem;
-        }
-        .ac-item:last-child { border-bottom: none; }
-        .ac-item:hover, .ac-item.active { background: rgba(0,212,255,0.1); }
-        .ac-name { color: white; font-size: 0.95rem; font-weight: 500; }
-        .ac-name em { color: #00d4ff; font-style: normal; font-weight: 700; }
-        .ac-meta { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
-        .ac-code {
-            background: rgba(81,207,102,0.2);
-            color: #51cf66;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-family: monospace;
             font-size: 0.8rem;
-        }
-        .ac-system {
-            background: rgba(0,212,255,0.15);
-            color: #00d4ff;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 0.72rem;
-        }
-        .ac-loading {
-            padding: 1rem;
-            text-align: center;
-            color: rgba(255,255,255,0.5);
-            font-size: 0.9rem;
-        }
-
-        .search-btn {
-            padding: 16px 32px;
-            background: linear-gradient(135deg,#00d4ff,#5b73ff);
-            border: none;
-            border-radius: 25px;
-            color: white;
             font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            white-space: nowrap;
+            gap: 0.4rem;
+            transition: all 0.15s;
         }
-        .search-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0,212,255,0.4); }
-        .search-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .back-btn:hover { background: #e3f0ff; color: #0d1f35; border-color: #1976d2; }
 
-        /* Spinner */
-        .loading-spinner { display: flex; justify-content: center; align-items: center; padding: 3rem; color: #00d4ff; }
-        .spinner { width: 50px; height: 50px; border: 4px solid rgba(0,212,255,0.2); border-top: 4px solid #00d4ff; border-radius: 50%; animation: spin 1s linear infinite; }
-
-        /* Results */
-        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
-        .results-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(0,212,255,0.2);
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-        .results-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid rgba(0,212,255,0.15); }
-        .results-header.namaste { background: rgba(0,212,255,0.08); }
-        .results-header.icd11  { background: rgba(81,207,102,0.08); }
-        .results-title { color: white; font-weight: 600; font-size: 1rem; margin: 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-        .results-table { width: 100%; color: white; border-collapse: collapse; }
-        .results-table th { background: rgba(0,0,0,0.2); color: rgba(255,255,255,0.7); font-weight: 500; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 0.8rem 1rem; }
-        .results-table td { padding: 0.9rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.88rem; }
-        .results-table tr:hover { background: rgba(0,212,255,0.04); }
-        .code-badge { background: rgba(0,212,255,0.2); color: #00d4ff; padding: 3px 8px; border-radius: 6px; font-family: monospace; font-size: 0.82rem; }
-        .code-badge.icd11 { background: rgba(81,207,102,0.2); color: #51cf66; }
-        .system-badge { background: linear-gradient(135deg,#00d4ff,#5b73ff); color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 500; }
-        .system-badge.icd11 { background: linear-gradient(135deg,#51cf66,#40c057); }
-        .ai-badge { background: linear-gradient(135deg,#a855f7,#6366f1); color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 500; }
-        .translate-btn { padding: 5px 10px; background: linear-gradient(135deg,#ffd43b,#fab005); border: none; border-radius: 12px; color: #333; font-weight: 500; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; }
-        .translate-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(255,212,59,0.4); }
-        .no-results { text-align: center; padding: 2rem; color: rgba(255,255,255,0.5); font-style: italic; }
-        .error-message { background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.2); color: #ff6b6b; padding: 1rem; border-radius: 12px; margin-top: 1rem; }
-
-        @keyframes fadeInUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes spin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
-
-        @media(max-width:768px) {
-            .search-container { margin:1rem; padding:2rem 1.5rem; }
-            .search-row { grid-template-columns:1fr; gap:1rem; }
-            .results-grid { grid-template-columns:1fr; gap:1.5rem; }
-            .search-header { flex-direction:column; gap:1rem; text-align:center; }
-        }
+        .search-row { display:grid; grid-template-columns:1fr auto; gap:1rem; align-items:end; margin-bottom:1.5rem; }
+        .search-input-wrap { position:relative; }
+        .search-label { display:block; color:#0d1f35; font-weight:600; font-size:0.8rem; margin-bottom:0.35rem; }
+        .search-input { width:100%; padding:0.65rem 1rem; background:#f4f7fb; border:1.5px solid #d0dae6; border-radius:8px; color:#0d1f35; font-size:0.95rem; font-family:'Inter',sans-serif; transition:border-color 0.15s,box-shadow 0.15s; box-sizing:border-box; outline:none; }
+        .search-input:focus { border-color:#1976d2; box-shadow:0 0 0 3px rgba(25,118,210,0.12); background:#fff; }
+        .search-input::placeholder { color:#a0adb8; }
+        .autocomplete-dropdown { position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1.5px solid #d0dae6; border-radius:10px; z-index:999; max-height:300px; overflow-y:auto; box-shadow:0 8px 24px rgba(15,39,68,0.13); display:none; }
+        .autocomplete-dropdown.open { display:block; }
+        .ac-item { display:flex; align-items:center; justify-content:space-between; padding:0.6rem 1rem; cursor:pointer; border-bottom:1px solid #eef2f7; transition:background 0.1s; gap:1rem; }
+        .ac-item:last-child { border-bottom:none; }
+        .ac-item:hover, .ac-item.active { background:#e3f0ff; }
+        .ac-name { color:#0d1f35; font-size:0.875rem; font-weight:500; }
+        .ac-name em { color:#1976d2; font-style:normal; font-weight:700; }
+        .ac-meta { display:flex; align-items:center; gap:0.4rem; flex-shrink:0; }
+        .ac-code { background:#e2f5ec; color:#1b7a4a; padding:2px 7px; border-radius:5px; font-family:monospace; font-size:0.75rem; font-weight:700; }
+        .ac-system { background:#e3f0ff; color:#1565c0; padding:2px 7px; border-radius:5px; font-size:0.7rem; font-weight:600; }
+        .ac-loading { padding:0.85rem 1rem; text-align:center; color:#607080; font-size:0.83rem; }
+        .search-btn { padding:0.65rem 1.4rem; background:#1976d2; border:none; border-radius:8px; color:#fff; font-weight:700; font-size:0.85rem; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:0.4rem; white-space:nowrap; }
+        .search-btn:hover { background:#1565c0; box-shadow:0 4px 12px rgba(21,101,192,0.3); transform:translateY(-1px); }
+        .search-btn:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+        .loading-spinner { display:flex; justify-content:center; align-items:center; padding:2.5rem; gap:0.75rem; color:#607080; font-size:0.875rem; }
+        .spinner { width:28px; height:28px; border:3px solid #d0dae6; border-top:3px solid #1976d2; border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }
+        .results-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-top:1.5rem; }
+        .results-card { background:#fff; border:1px solid #d0dae6; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(15,39,68,0.07); }
+        .results-header { padding:0.85rem 1.25rem; border-bottom:1px solid #eef2f7; }
+        .results-header.namaste { background:#e3f0ff; border-bottom-color:#c5ddf5; }
+        .results-header.icd11   { background:#e2f5ec; border-bottom-color:#a7d7bc; }
+        .results-title { color:#0d1f35; font-weight:700; font-size:0.85rem; margin:0; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
+        .results-title i { color:#1976d2; }
+        .results-header.icd11 .results-title i { color:#1b7a4a; }
+        .results-table { width:100%; border-collapse:collapse; }
+        .results-table th { background:#f4f7fb; color:#607080; font-weight:700; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px; padding:0.6rem 1rem; text-align:left; border-bottom:1px solid #eef2f7; }
+        .results-table td { padding:0.7rem 1rem; border-bottom:1px solid #f4f7fb; font-size:0.845rem; color:#2c3e55; }
+        .results-table tr:last-child td { border-bottom:none; }
+        .results-table tr:hover td { background:#f4f7fb; }
+        .code-badge { background:#e3f0ff; color:#1565c0; padding:2px 8px; border-radius:5px; font-family:monospace; font-size:0.78rem; font-weight:700; }
+        .code-badge.icd11 { background:#e2f5ec; color:#1b7a4a; }
+        .system-badge { background:#eef2f7; color:#607080; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:600; }
+        .system-badge.icd11 { background:#e2f5ec; color:#1b7a4a; }
+        .ai-badge { background:#e3f0ff; color:#1565c0; padding:2px 8px; border-radius:5px; font-size:0.7rem; font-weight:700; }
+        .translate-btn { padding:4px 10px; background:#fef3e2; border:1px solid #f0d9a0; border-radius:6px; color:#92400e; font-weight:600; font-size:0.72rem; cursor:pointer; transition:all 0.15s; }
+        .translate-btn:hover { background:#fde68a; border-color:#d97706; }
+        .no-results { text-align:center; padding:1.5rem; color:#8fa0b0; font-size:0.83rem; font-style:italic; }
+        .error-message { background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:0.75rem 1rem; border-radius:8px; margin-top:1rem; font-size:0.845rem; }
+        @keyframes spin { 0%{transform:rotate(0deg);}100%{transform:rotate(360deg);} }
+        @media(max-width:768px) { .search-container{margin:1rem;padding:1.25rem;} .search-row{grid-template-columns:1fr;gap:0.75rem;} .results-grid{grid-template-columns:1fr;gap:1rem;} .search-header{flex-direction:column;gap:0.75rem;align-items:flex-start;} }
     </style>
 </head>
-<body>
+<body style="background:#eef2f7;color:#2c3e55;">
 <div class="dashboard-container">
     <div class="dashboard-sidebar">
         <div class="sidebar-header">
@@ -216,12 +105,14 @@
             <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
             <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
             <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+            <a href="/treatments/" class="nav-link"><i class="fas fa-heartbeat"></i> Treatment Plans</a>
+            <a href="/appointments/" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
             <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
             <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
             <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
             <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
             <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
-            <hr style="border-color:rgba(0,212,255,0.2);margin:1rem 0;">
+            <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:0.75rem 0;">
             <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </nav>
     </div>
@@ -424,9 +315,9 @@
         // NAMASTE source badge
         const srcBadge = document.getElementById('namasteSourceBadge');
         srcBadge.textContent = data.namaste_source === 'api' ? 'Official API' : 'CSV Data';
-        srcBadge.style.background = data.namaste_source === 'api'
-            ? 'linear-gradient(135deg,#51cf66,#40c057)'
-            : 'linear-gradient(135deg,#ffd43b,#fab005)';
+        srcBadge.style.background = data.namaste_source === 'api' ? '#e2f5ec' : '#fef3e2';
+        srcBadge.style.color = data.namaste_source === 'api' ? '#1b7a4a' : '#92400e';
+        srcBadge.style.border = data.namaste_source === 'api' ? '1px solid #a7d7bc' : '1px solid #f0d9a0';
 
         // NAMASTE rows
         if (data.namaste && data.namaste.length) {
@@ -446,6 +337,9 @@
 
         // ICD-11 rows
         if (data.icd11 && data.icd11.length) {
+            icd11Table.innerHTML = `<tr><td colspan="3" style="color:#5b6b7d;font-size:0.82rem;padding-bottom:0.6rem;">
+                ${data.icd11.length} related ICD-11 concept${data.icd11.length === 1 ? '' : 's'}, closest match first
+            </td></tr>`;
             data.icd11.forEach(item => {
                 icd11Table.innerHTML += `<tr>
                     <td><span class="code-badge icd11">${escHtml(item.code)}</span></td>
@@ -453,8 +347,14 @@
                     <td><span class="system-badge icd11">${escHtml(item.category||'ICD-11')}</span></td>
                 </tr>`;
             });
+        } else if (data.icd11_error) {
+            // The server now distinguishes "the API is broken" from "nothing
+            // matched", so report what actually went wrong rather than guessing.
+            icd11Table.innerHTML = `<tr><td colspan="3" class="no-results">
+                ICD-11 lookup unavailable &mdash; ${escHtml(data.icd11_error)}
+            </td></tr>`;
         } else {
-            icd11Table.innerHTML = '<tr><td colspan="3" class="no-results">No ICD-11 results — check your Gemini API key</td></tr>';
+            icd11Table.innerHTML = '<tr><td colspan="3" class="no-results">No ICD-11 concepts matched that search</td></tr>';
         }
 
         document.getElementById('results').style.display = 'block';
@@ -471,29 +371,29 @@
         let section = document.getElementById('translationSection');
         if (!section) {
             document.getElementById('results').insertAdjacentHTML('afterend', `
-                <div id="translationSection" style="margin-top:2rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,212,59,0.3);border-radius:16px;overflow:hidden;">
-                    <div style="padding:1.2rem 1.5rem;background:rgba(255,212,59,0.08);border-bottom:1px solid rgba(255,212,59,0.2);">
-                        <h5 style="color:#ffd43b;margin:0;display:flex;align-items:center;gap:0.5rem;">
-                            <i class="fas fa-exchange-alt"></i> Code Translation
+                <div id="translationSection" style="margin-top:1.5rem;background:#fff;border:1px solid #d0dae6;border-left:4px solid #1976d2;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(15,39,68,0.07);">
+                    <div style="padding:0.85rem 1.25rem;background:#e3f0ff;border-bottom:1px solid #c5ddf5;">
+                        <h5 style="color:#0d1f35;margin:0;display:flex;align-items:center;gap:0.5rem;font-size:0.875rem;font-weight:700;">
+                            <i class="fas fa-exchange-alt" style="color:#1976d2;"></i> Code Translation
                         </h5>
                     </div>
-                    <div style="padding:1.5rem;" id="translationResults"></div>
+                    <div style="padding:1.25rem;" id="translationResults"></div>
                 </div>`);
             section = document.getElementById('translationSection');
         }
         const out = document.getElementById('translationResults');
-        out.innerHTML = `<p style="color:rgba(255,255,255,0.6);">Translating <span class="code-badge">${escHtml(code)}</span>…</p>`;
+        out.innerHTML = `<p style="color:#607080;font-size:0.845rem;">Translating <span class="code-badge">${escHtml(code)}</span>…</p>`;
 
         try {
             const res = await fetch(`/translate_code?code=${encodeURIComponent(code)}&system=namaste`);
             const data = await res.json();
             if (data.success) {
-                out.innerHTML = `<div style="background:rgba(81,207,102,0.08);border:1px solid rgba(81,207,102,0.2);padding:1rem;border-radius:12px;">
-                    <div style="margin-bottom:0.5rem;color:rgba(255,255,255,0.7);">Source: <span class="code-badge">${escHtml(data.source.code)}</span> ${escHtml(data.source.name)}</div>
-                    <div>ICD-11: <span class="code-badge icd11">${escHtml(data.target.code)}</span> ${escHtml(data.target.name)}</div>
+                out.innerHTML = `<div style="background:#e2f5ec;border:1px solid #a7d7bc;padding:0.9rem 1rem;border-radius:8px;">
+                    <div style="margin-bottom:0.4rem;color:#2c3e55;font-size:0.845rem;">Source: <span class="code-badge">${escHtml(data.source.code)}</span> ${escHtml(data.source.name)}</div>
+                    <div style="color:#2c3e55;font-size:0.845rem;">ICD-11: <span class="code-badge icd11">${escHtml(data.target.code)}</span> ${escHtml(data.target.name)}</div>
                 </div>`;
             } else {
-                out.innerHTML = `<div style="color:#ffd43b;padding:0.75rem;background:rgba(255,212,59,0.08);border-radius:8px;">${escHtml(data.message)}</div>`;
+                out.innerHTML = `<div style="color:#92400e;padding:0.75rem;background:#fef3e2;border:1px solid #f0d9a0;border-radius:8px;font-size:0.845rem;">${escHtml(data.message)}</div>`;
             }
         } catch (e) {
             out.innerHTML = `<div class="error-message">Translation failed: ${e.message}</div>`;

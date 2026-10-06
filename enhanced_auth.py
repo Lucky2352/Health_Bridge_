@@ -1,13 +1,14 @@
-import sqlite3
+import db
 import os
 import logging
-from datetime import datetime, timedelta
 from flask_login import UserMixin
 from enum import Enum
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# A library module, so it configures no logging - that belongs to whoever runs
+# the app (see the basicConfig call in app.py). Calling basicConfig here meant
+# importing this module silently set the root logger's level and format for the
+# whole process, which is how library code should behave.
 logger = logging.getLogger(__name__)
 
 class UserRole(Enum):
@@ -43,18 +44,23 @@ class EnhancedUser(UserMixin):
         return self.role == UserRole.PATIENT.value
 
 class EnhancedAuthDB:
-    def __init__(self, db_file='enhanced_auth.db'):
+    def __init__(self, db_file='enhanced_auth.db', auto_create=True):
         # Convert to absolute path to ensure single database file
         if not os.path.isabs(db_file):
             self.db_file = os.path.abspath(db_file)
         else:
             self.db_file = db_file
-        logger.info(f"Using database file: {self.db_file}")
+        logger.debug(f"Using database file: {self.db_file}")
         self.init_database()
-        self.create_default_users()
+        if auto_create:
+            self.create_default_users()
     
     def init_database(self):
-        conn = sqlite3.connect(self.db_file)
+        """Create the schema, once per process. See db.ensure_once."""
+        db.ensure_once(f'EnhancedAuthDB:{self.db_file}', self._create_schema)
+
+    def _create_schema(self):
+        conn = db.connect(self.db_file)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS enhanced_users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,19 +95,22 @@ class EnhancedAuthDB:
     
     def create_default_users(self):
         """Create default users for each role"""
-        defaults = [
-            ('admin', 'admin@emr.com', 'System Administrator', 'admin123', UserRole.ADMIN.value),
-            ('doctor', 'doctor@emr.com', 'Dr. John Smith', 'doctor123', UserRole.DOCTOR.value),
-            ('patient', 'patient@emr.com', 'Jane Doe', 'patient123', UserRole.PATIENT.value)
-        ]
-        
-        for username, email, full_name, password, role in defaults:
-            if not self.user_exists(username):
-                self.create_user(username, email, full_name, password, role)
+        try:
+            defaults = [
+                ('admin', 'admin@emr.com', 'System Administrator', 'admin123', UserRole.ADMIN.value),
+                ('doctor', 'doctor@emr.com', 'Dr. John Smith', 'doctor123', UserRole.DOCTOR.value),
+                ('patient', 'patient@emr.com', 'Jane Doe', 'patient123', UserRole.PATIENT.value)
+            ]
+            
+            for username, email, full_name, password, role in defaults:
+                if not self.user_exists(username):
+                    self.create_user(username, email, full_name, password, role)
+        except Exception:
+            pass  # Don't fail startup if default users can't be created
     
     def generate_patient_id(self):
         """Generate unique patient ID in format P0001, P0002, etc."""
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         cursor = conn.execute('SELECT COUNT(*) FROM enhanced_users WHERE role = "patient"')
         patient_count = cursor.fetchone()[0]
         conn.close()
@@ -109,7 +118,7 @@ class EnhancedAuthDB:
     
     def generate_doctor_id(self):
         """Generate unique doctor ID in format D0001, D0002, etc."""
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         cursor = conn.execute('SELECT COUNT(*) FROM enhanced_users WHERE role = "doctor"')
         doctor_count = cursor.fetchone()[0]
         conn.close()
@@ -137,7 +146,7 @@ class EnhancedAuthDB:
             
             logger.info(f"Creating user: {username} ({email}) with patient_id: {patient_id}, doctor_id: {doctor_id}")
             
-            conn = sqlite3.connect(self.db_file)
+            conn = db.connect(self.db_file)
             cursor = conn.execute('''
                 INSERT INTO enhanced_users (username, email, full_name, password_hash, role, patient_id, doctor_id, google_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -148,7 +157,7 @@ class EnhancedAuthDB:
             
             logger.info(f"User created successfully: {username} (ID: {user_id}, Patient ID: {patient_id}, Doctor ID: {doctor_id})")
             return user_id
-        except sqlite3.IntegrityError as e:
+        except db.IntegrityError as e:
             logger.error(f"User creation failed for {username}: {e}")
             if 'username' in str(e):
                 raise ValueError('Username already exists')
@@ -166,8 +175,8 @@ class EnhancedAuthDB:
         
         logger.info(f"Login attempt for: {username_or_email}")
         
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         
         if '@' in username_or_email:
             cursor = conn.execute('''
@@ -217,8 +226,8 @@ class EnhancedAuthDB:
         - If new user: create with the given role (doctor/patient).
         Returns (user_object, is_new_user) tuple.
         """
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
 
         # 1. Existing user by Google ID
         cursor = conn.execute(
@@ -276,8 +285,8 @@ class EnhancedAuthDB:
         return user, True
     
     def get_user_by_id(self, user_id):
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('''
             SELECT * FROM enhanced_users 
             WHERE id = ? AND is_active = 1
@@ -303,7 +312,7 @@ class EnhancedAuthDB:
         )
     
     def update_last_login(self, user_id):
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         conn.execute('''
             UPDATE enhanced_users 
             SET last_login = CURRENT_TIMESTAMP 
@@ -314,7 +323,7 @@ class EnhancedAuthDB:
     
     def user_exists(self, username):
         username = username.strip()
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         cursor = conn.execute('SELECT COUNT(*) FROM enhanced_users WHERE username = ?', (username,))
         count = cursor.fetchone()[0]
         conn.close()
@@ -322,7 +331,7 @@ class EnhancedAuthDB:
     
     def email_exists(self, email):
         email = email.strip().lower()
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         cursor = conn.execute('SELECT COUNT(*) FROM enhanced_users WHERE email = ?', (email,))
         count = cursor.fetchone()[0]
         conn.close()
@@ -330,8 +339,8 @@ class EnhancedAuthDB:
     
     def get_user_by_email(self, email):
         email = email.strip().lower()
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('SELECT * FROM enhanced_users WHERE email = ? AND is_active = 1', (email,))
         user_row = cursor.fetchone()
         conn.close()
@@ -342,8 +351,8 @@ class EnhancedAuthDB:
     
     def get_user_by_username(self, username):
         username = username.strip()
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('SELECT * FROM enhanced_users WHERE username = ? AND is_active = 1', (username,))
         user_row = cursor.fetchone()
         conn.close()
@@ -354,8 +363,8 @@ class EnhancedAuthDB:
     
     def get_user_by_patient_id(self, patient_id):
         """Get user by patient_id"""
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('SELECT * FROM enhanced_users WHERE patient_id = ? AND is_active = 1', (patient_id,))
         user_row = cursor.fetchone()
         conn.close()
@@ -366,8 +375,8 @@ class EnhancedAuthDB:
     
     def get_user_by_doctor_id(self, doctor_id):
         """Get user by doctor_id"""
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         cursor = conn.execute('SELECT * FROM enhanced_users WHERE doctor_id = ? AND is_active = 1', (doctor_id,))
         user_row = cursor.fetchone()
         conn.close()

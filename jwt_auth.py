@@ -1,8 +1,7 @@
-import jwt
 import uuid
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import request, jsonify, current_app
+from flask import request, jsonify
 
 class JWTAuth:
     SECRET_KEY = 'your-jwt-secret-key-change-in-production'
@@ -10,6 +9,7 @@ class JWTAuth:
     @staticmethod
     def generate_token(username, expires_hours=24):
         """Generate JWT token"""
+        import jwt
         payload = {
             'username': username,
             'exp': datetime.utcnow() + timedelta(hours=expires_hours),
@@ -23,11 +23,10 @@ class JWTAuth:
     def verify_token(token):
         """Verify JWT token"""
         try:
+            import jwt
             payload = jwt.decode(token, JWTAuth.SECRET_KEY, algorithms=['HS256'])
             return payload
-        except jwt.ExpiredSignatureError:
-            return None
-        except jwt.InvalidTokenError:
+        except Exception:
             return None
 
 def jwt_required(f):

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treatment Plans - HealthBridge EMR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/futuristic-dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #1a2332; }
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.5rem; }
+        .topbar { display: flex; justify-content: space-between; align-items: center;
+                  flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
+        .topbar h1 { margin: 0; font-size: 1.4rem; color: #0d1f35; }
+        .topbar p { margin: 0.25rem 0 0; color: #607080; font-size: 0.875rem; }
+        .alert { padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1.25rem;
+                 display: flex; align-items: center; gap: 0.6rem; font-size: 0.875rem;
+                 font-weight: 500; border: 1px solid; }
+        .alert-success { background: #e8f5ee; border-color: #b8dfc9; color: #1e5c3a; }
+        .alert-error   { background: #fdeaea; border-color: #f5c6c6; color: #8b2020; }
+        .alert-close { margin-left: auto; background: none; border: none;
+                       color: inherit; font-size: 1rem; cursor: pointer; opacity: 0.6; }
+        .btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.1rem;
+               border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+               cursor: pointer; text-decoration: none; font-family: inherit; }
+        .btn-primary { background: #1976d2; color: #fff; }
+        .btn-primary:hover { background: #155a9e; }
+        .btn-ghost { background: #fff; color: #2c3e55; border: 1px solid #d0dae6; }
+        .btn-ghost:hover { background: #eef3f8; }
+        .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                 gap: 1rem; margin-bottom: 1.5rem; }
+        .stat-card { background: #fff; border: 1px solid #d0dae6; border-radius: 10px;
+                     padding: 1rem 1.25rem; }
+        .stat-card .num { font-size: 1.75rem; font-weight: 700; color: #0d1f35; }
+        .stat-card .lbl { font-size: 0.8rem; color: #607080; margin-top: 0.2rem; }
+        .card { background: #fff; border: 1px solid #d0dae6; border-radius: 10px;
+                padding: 1.25rem; margin-bottom: 1rem;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .card-head { display: flex; justify-content: space-between; align-items: flex-start;
+                     gap: 1rem; flex-wrap: wrap; }
+        .card-head h3 { margin: 0 0 0.25rem; font-size: 1rem; color: #0d1f35; }
+        .card-head .meta { font-size: 0.8rem; color: #607080; }
+        .card-actions { display: flex; gap: 0.5rem; }
+        .badges { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.75rem 0; }
+        .badge { padding: 0.2rem 0.65rem; border-radius: 12px; font-size: 0.75rem;
+                 font-weight: 600; background: #eef3f8; color: #2c3e55; }
+        .badge-active { background: #e8f5ee; color: #1e5c3a; }
+        .badge-completed { background: #e3f0fb; color: #155a9e; }
+        .badge-discontinued { background: #fdeaea; color: #8b2020; }
+        .badge-on_hold { background: #fdf3e3; color: #b07d2e; }
+        .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                  gap: 0.75rem; font-size: 0.85rem; color: #2c3e55;
+                  padding-top: 0.75rem; border-top: 1px solid #e8edf3; }
+        .fields strong { display: block; color: #607080; font-size: 0.75rem;
+                         font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+        .prose { color: #2c3e55; font-size: 0.875rem; margin: 0.75rem 0 0;
+                 padding-top: 0.75rem; border-top: 1px solid #e8edf3; white-space: pre-wrap; }
+        .empty { text-align: center; padding: 3rem 1.5rem; color: #607080;
+                 background: #fff; border: 1px dashed #d0dae6; border-radius: 10px; }
+        .empty i { font-size: 2rem; color: #b0bec5; display: block; margin-bottom: 0.75rem; }
+        .empty h3 { margin: 0 0 0.5rem; color: #2c3e55; font-size: 1rem; }
+        .empty p { margin: 0 0 1.25rem; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="topbar">
+        <div>
+            <h1><i class="fas fa-heartbeat" style="color:#2e7d9f;"></i> Treatment Plans</h1>
+            <p>
+                {% if is_admin_view %}
+                    Admin view &mdash; you have no treatment plans of your own.
+                {% else %}
+                    Plans you are treating
+                    {% if current_user.doctor_id %}
+                        &middot; <strong>{{ current_user.doctor_id }}</strong>
+                    {% endif %}
+                {% endif %}
+            </p>
+        </div>
+        <div style="display:flex;gap:0.6rem;align-items:center;">
+            <a href="/enhanced/dashboard" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> Dashboard</a>
+            <a href="/patients/" class="btn btn-ghost"><i class="fas fa-users"></i> Patients</a>
+            <a href="/treatments/create" class="btn btn-primary"><i class="fas fa-plus"></i> New Treatment</a>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                    <i class="fas fa-{{ 'exclamation-circle' if category == 'error' else 'check-circle' }}"></i>
+                    {{ message }}
+                    <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if session.get('treatment_success') %}
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i>
+            {{ session.pop('treatment_success') }}
+            <button class="alert-close" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+    {% endif %}
+
+    {% if not is_admin_view %}
+        {% set active = treatments | selectattr('status', 'equalto', 'active') | list %}
+        <div class="stats">
+            <div class="stat-card">
+                <div class="num">{{ treatments | length }}</div>
+                <div class="lbl">Total treatments</div>
+            </div>
+            <div class="stat-card">
+                <div class="num">{{ active | length }}</div>
+                <div class="lbl">Active</div>
+            </div>
+            <div class="stat-card">
+                <div class="num">{{ treatments | map(attribute='patient_id') | unique | list | length }}</div>
+                <div class="lbl">Patients treated</div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if not is_admin_view and treatments %}
+        {% for treatment in treatments %}
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>{{ treatment.title }}</h3>
+                        <div class="meta">
+                            {{ treatment.patient_name or 'Unknown patient' }}
+                            &middot; <strong>{{ treatment.patient_id }}</strong>
+                            {% if treatment.patient_email %} &middot; {{ treatment.patient_email }}{% endif %}
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <a href="/treatments/{{ treatment.id }}/edit" class="btn btn-ghost btn-sm">
+                            <i class="fas fa-pen"></i> Edit
+                        </a>
+                        <form method="POST" action="/treatments/{{ treatment.id }}/delete"
+                              onsubmit="return confirm('Remove &quot;{{ treatment.title }}&quot; from this patient plan? The patient will stop seeing it.');">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="color:#c0392b;">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="badges">
+                    <span class="badge">{{ treatment.treatment_type }}</span>
+                    <span class="badge badge-{{ treatment.status }}">{{ treatment.status }}</span>
+                    {% if treatment.start_date %}<span class="badge">from {{ treatment.start_date }}</span>{% endif %}
+                    {% if treatment.follow_up_date %}<span class="badge">follow-up {{ treatment.follow_up_date }}</span>{% endif %}
+                </div>
+
+                {% if treatment.medication_name or treatment.dosage or treatment.frequency or treatment.duration %}
+                    <div class="fields">
+                        {% if treatment.medication_name %}<div><strong>Medication</strong>{{ treatment.medication_name }}</div>{% endif %}
+                        {% if treatment.dosage %}<div><strong>Dosage</strong>{{ treatment.dosage }}</div>{% endif %}
+                        {% if treatment.frequency %}<div><strong>Frequency</strong>{{ treatment.frequency }}</div>{% endif %}
+                        {% if treatment.duration %}<div><strong>Duration</strong>{{ treatment.duration }}</div>{% endif %}
+                    </div>
+                {% endif %}
+
+                {% if treatment.description %}<p class="prose">{{ treatment.description }}</p>{% endif %}
+                {% if treatment.instructions %}<p class="prose">{{ treatment.instructions }}</p>{% endif %}
+                {% if treatment.notes %}<p class="prose">{{ treatment.notes }}</p>{% endif %}
+
+                <div class="meta" style="margin-top:0.75rem;">
+                    Recorded {{ treatment.created_at }}
+                    {% if treatment.updated_at and treatment.updated_at != treatment.created_at %}
+                        &middot; last revised {{ treatment.updated_at }}
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty">
+            <i class="fas fa-clipboard-list"></i>
+            <h3>No treatment plans yet</h3>
+            <p>
+                {% if is_admin_view %}
+                    Admins author no treatments of their own. Open a doctor account to
+                    review or revise a plan.
+                {% else %}
+                    Start a treatment plan and it becomes visible to that patient on their
+                    dashboard straight away.
+                {% endif %}
+            </p>
+            <a href="/treatments/create" class="btn btn-primary"><i class="fas fa-plus"></i> New Treatment</a>
+        </div>
+    {% endif %}
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 import uuid
 import json
-import sqlite3
+import db
 from datetime import datetime
 
 class FHIRBundleValidator:
@@ -82,8 +82,12 @@ class FHIRBundleStorage:
         self._init_db()
     
     def _init_db(self):
+        """Create the schema, once per process. See db.ensure_once."""
+        db.ensure_once(f'FHIRBundleStorage:{self.db_file}', self._create_schema)
+
+    def _create_schema(self):
         """Initialize bundle storage database"""
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS fhir_bundles (
                 id TEXT PRIMARY KEY,
@@ -99,12 +103,12 @@ class FHIRBundleStorage:
         # Add new columns if they don't exist (for existing databases)
         try:
             conn.execute('ALTER TABLE fhir_bundles ADD COLUMN bundle_type TEXT')
-        except sqlite3.OperationalError:
+        except db.OperationalError:
             pass
         
         try:
             conn.execute('ALTER TABLE fhir_bundles ADD COLUMN entry_count INTEGER DEFAULT 0')
-        except sqlite3.OperationalError:
+        except db.OperationalError:
             pass
         
         conn.commit()
@@ -116,7 +120,7 @@ class FHIRBundleStorage:
         bundle_type = bundle_data.get('type', 'unknown')
         entry_count = len(bundle_data.get('entry', []))
         
-        conn = sqlite3.connect(self.db_file)
+        conn = db.connect(self.db_file)
         conn.execute('''
             INSERT OR REPLACE INTO fhir_bundles 
             (id, bundle_data, bundle_type, entry_count, uploaded_by, validation_status) 
@@ -129,8 +133,8 @@ class FHIRBundleStorage:
     
     def get_all_bundles(self):
         """Get all stored bundles with metadata"""
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         
         cursor = conn.execute('''
             SELECT id, bundle_type, entry_count, uploaded_at, uploaded_by, validation_status
@@ -144,10 +148,11 @@ class FHIRBundleStorage:
             upload_date = 'N/A'
             if row['uploaded_at']:
                 try:
-                    from datetime import datetime
                     dt = datetime.fromisoformat(row['uploaded_at'].replace('Z', '+00:00'))
                     upload_date = dt.strftime('%Y-%m-%d %H:%M')
-                except:
+                except (AttributeError, TypeError, ValueError):
+                    # A timestamp in a shape fromisoformat cannot read. Show it
+                    # truncated rather than losing the row.
                     upload_date = str(row['uploaded_at'])[:16]
             
             bundles.append({
@@ -168,8 +173,8 @@ class FHIRBundleStorage:
     
     def get_bundle(self, bundle_id):
         """Get specific bundle by ID"""
-        conn = sqlite3.connect(self.db_file)
-        conn.row_factory = sqlite3.Row
+        conn = db.connect(self.db_file)
+        conn.row_factory = db.Row
         
         cursor = conn.execute('''
             SELECT * FROM fhir_bundles WHERE id = ?

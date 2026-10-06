@@ -21,11 +21,12 @@
             <nav class="sidebar-nav">
                 <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
                 <a href="/patient/records" class="nav-link active"><i class="fas fa-file-medical"></i> My Records</a>
+                <a href="/patient/treatments" class="nav-link"><i class="fas fa-heartbeat"></i> My Treatment Plan</a>
                 <a href="/patient/appointments" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
                 <a href="/patient/prescriptions" class="nav-link"><i class="fas fa-prescription-bottle"></i> Prescriptions</a>
                 <a href="/patient/history" class="nav-link"><i class="fas fa-history"></i> My History</a>
                 <a href="/patient/profile" class="nav-link"><i class="fas fa-user-circle"></i> Profile</a>
-                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <hr style="border-color: rgba(255,255,255,0.15); margin: 1rem 0;">
                 <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </nav>
         </div>
@@ -72,9 +73,9 @@
                             <div class="dashboard-tool-title">Medical Records</div>
                             <div class="dashboard-tool-description">View your complete medical history, diagnoses, and treatment records from healthcare providers</div>
                             <div id="recordsList" style="margin: 1rem 0;">
-                                <div class="empty-state" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.6);">
-                                    <i class="fas fa-file-medical-alt" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                                    <h4>No medical records found</h4>
+                                <div class="empty-state" style="text-align: center; padding: 2rem; color: #607080;">
+                                    <i class="fas fa-file-medical-alt" style="font-size: 2rem; margin-bottom: 1rem; color: #b0bec5;"></i>
+                                    <h4 style="color: #2c3e55;">No medical records found</h4>
                                     <p>Your medical records will appear here once doctors add them to your profile.</p>
                                 </div>
                             </div>
@@ -99,31 +100,35 @@
 
         // Load patient diagnoses
         async function loadPatientRecords() {
+            const recordsList = document.getElementById('recordsList');
+            // Diagnosis text is written by clinicians, so escape before injecting.
+            const escape = s => String(s ?? '').replace(/[&<>"]/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+            ));
+
             try {
                 const response = await fetch('/patient/api/diagnoses');
                 const data = await response.json();
                 
-                const recordsList = document.getElementById('recordsList');
-                
                 if (data.success && data.diagnoses && data.diagnoses.length > 0) {
                     const recordsHtml = data.diagnoses.map(diagnosis => `
-                        <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(0,212,255,0.2); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem;">
+                        <div style="background: #ffffff; border: 1px solid #d0dae6; border-left: 4px solid #1976d2; border-radius: 10px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
                                 <div>
-                                    <h4 style="color: #00d4ff; margin: 0 0 0.5rem 0;">${diagnosis.condition_name}</h4>
-                                    <p style="color: rgba(255,255,255,0.8); margin: 0; font-size: 0.9rem;">by Dr. ${diagnosis.doctor_name}</p>
-                                    <p style="color: #00d4ff; margin: 0; font-size: 0.8rem; font-weight: 600;">Doctor ID: ${diagnosis.doctor_id || 'N/A'}</p>
+                                    <h4 style="color: #0d1f35; margin: 0 0 0.4rem 0;">${escape(diagnosis.condition_name)}</h4>
+                                    <p style="color: #2c3e55; margin: 0; font-size: 0.9rem;">by Dr. ${escape(diagnosis.doctor_name || 'Unknown')}</p>
+                                    <p style="color: #607080; margin: 0.2rem 0 0 0; font-size: 0.8rem;">Doctor ID: ${escape(diagnosis.doctor_id || 'N/A')}</p>
                                 </div>
                                 <div style="text-align: right;">
-                                    <span style="background: rgba(0,212,255,0.2); color: #00d4ff; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem;">
-                                        ${diagnosis.condition_code || 'No Code'}
+                                    <span style="background: #e3f0fb; color: #1976d2; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">
+                                        ${escape(diagnosis.condition_code || 'No Code')}
                                     </span>
-                                    <p style="color: rgba(255,255,255,0.6); margin: 0.5rem 0 0 0; font-size: 0.8rem;">
+                                    <p style="color: #607080; margin: 0.5rem 0 0 0; font-size: 0.8rem;">
                                         ${new Date(diagnosis.created_at).toLocaleDateString()}
                                     </p>
                                 </div>
                             </div>
-                            ${diagnosis.notes ? `<p style="color: rgba(255,255,255,0.7); margin: 0; font-style: italic; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">${diagnosis.notes}</p>` : ''}
+                            ${diagnosis.notes ? `<p style="color: #2c3e55; margin: 0; font-style: italic; padding-top: 1rem; border-top: 1px solid #e8edf3;">${escape(diagnosis.notes)}</p>` : ''}
                         </div>
                     `).join('');
                     
@@ -140,12 +145,13 @@
                     
                     const uniqueDoctors = [...new Set(data.diagnoses.map(d => d.doctor_name))];
                     document.getElementById('doctorCount').textContent = uniqueDoctors.length;
+                    document.getElementById('doctorCount').textContent = uniqueDoctors.length;
                     
                 } else {
                     recordsList.innerHTML = `
-                        <div class="empty-state" style="text-align: center; padding: 2rem; color: rgba(255,255,255,0.6);">
-                            <i class="fas fa-file-medical-alt" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                            <h4>No medical records found</h4>
+                        <div class="empty-state" style="text-align: center; padding: 2rem; color: #607080;">
+                            <i class="fas fa-file-medical-alt" style="font-size: 2rem; margin-bottom: 1rem; color: #b0bec5;"></i>
+                            <h4 style="color: #2c3e55;">No medical records found</h4>
                             <p>Your medical records will appear here once doctors add them to your profile.</p>
                         </div>
                     `;
@@ -154,9 +160,9 @@
             } catch (error) {
                 console.error('Error loading records:', error);
                 document.getElementById('recordsList').innerHTML = `
-                    <div class="empty-state" style="text-align: center; padding: 2rem; color: rgba(255,107,107,0.8);">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                        <h4>Error loading records</h4>
+                    <div class="empty-state" style="text-align: center; padding: 2rem; color: #c0392b;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem; color: #e74c3c;"></i>
+                        <h4 style="color: #0d1f35;">Error loading records</h4>
                         <p>Please try refreshing the page.</p>
                     </div>
                 `;

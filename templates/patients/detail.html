@@ -19,22 +19,25 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            padding: 1.5rem 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-left: 4px solid var(--blue-mid);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
         }
 
         .patient-title {
-            font-size: 2rem;
+            font-size: 1.6rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #00d4ff, #5b73ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text-heading);
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
+
+        .patient-title i { color: var(--blue-mid); }
 
         .header-actions {
             display: flex;
@@ -59,35 +62,37 @@
         }
 
         .btn-warning {
-            background: linear-gradient(135deg, #ffd43b, #fab005);
-            color: #333;
+            background: linear-gradient(135deg, #fab005, var(--amber));
+            color: #ffffff;
         }
 
         .btn-warning:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 212, 59, 0.4);
+            box-shadow: 0 4px 12px rgba(180, 83, 9, 0.3);
+            color: #ffffff;
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.8);
+            background: #ffffff;
+            border: 1px solid var(--border);
+            color: var(--text-body);
         }
 
         .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
+            background: var(--bg-page);
+            color: var(--text-heading);
             transform: translateY(-2px);
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #00d4ff, #5b73ff);
-            color: white;
+            background: linear-gradient(135deg, var(--blue-mid), var(--navy-light));
+            color: #ffffff;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+            box-shadow: 0 4px 12px rgba(21, 101, 192, 0.3);
+            color: #ffffff;
         }
 
         .patient-content {
@@ -97,83 +102,88 @@
         }
 
         .info-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            box-shadow: var(--shadow-sm);
             margin-bottom: 1.5rem;
         }
 
         .card-header {
-            padding: 1.5rem;
-            background: rgba(0, 212, 255, 0.1);
-            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            padding: 1rem 1.25rem;
+            background: var(--blue-light);
+            border-bottom: 1px solid var(--border-light);
         }
 
         .card-title {
-            color: white;
+            color: var(--text-heading);
             font-weight: 600;
-            font-size: 1.1rem;
+            font-size: 1rem;
             margin: 0;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
+        .card-title i { color: var(--blue-mid); }
+
         .card-body {
-            padding: 1.5rem;
+            padding: 1.25rem;
         }
 
         .info-table {
             width: 100%;
-            color: white;
+            color: var(--text-body);
         }
 
         .info-table td {
-            padding: 0.75rem 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0.7rem 0;
+            border-bottom: 1px solid var(--border-light);
             font-size: 0.9rem;
+            color: var(--text-body);
         }
 
+        .info-table tr:last-child td { border-bottom: none; }
+
         .info-table td:first-child {
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+            color: var(--text-heading);
             width: 40%;
         }
 
         .patient-id {
-            background: rgba(0, 212, 255, 0.2);
-            color: #00d4ff;
+            background: var(--blue-light);
+            color: var(--blue);
             padding: 0.25rem 0.5rem;
             border-radius: 6px;
             font-family: 'Courier New', monospace;
             font-size: 0.8rem;
+            font-weight: 600;
         }
 
         .abha-id {
-            background: rgba(81, 207, 102, 0.2);
-            color: #51cf66;
+            background: var(--green-light);
+            color: var(--green);
             padding: 0.25rem 0.5rem;
             border-radius: 6px;
             font-family: 'Courier New', monospace;
             font-size: 0.8rem;
+            font-weight: 600;
         }
 
         .diagnosis-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            box-shadow: var(--shadow-sm);
         }
 
         .diagnosis-header {
-            padding: 1.5rem;
-            background: rgba(0, 212, 255, 0.1);
-            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            padding: 1rem 1.25rem;
+            background: var(--blue-light);
+            border-bottom: 1px solid var(--border-light);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -181,50 +191,52 @@
 
         .diagnosis-table {
             width: 100%;
-            color: white;
+            color: var(--text-body);
         }
 
         .diagnosis-table th {
-            background: rgba(0, 0, 0, 0.2);
-            color: rgba(255, 255, 255, 0.8);
-            font-weight: 500;
-            font-size: 0.8rem;
+            background: var(--bg-page);
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            padding: 1rem;
+            padding: 0.85rem 1rem;
             border: none;
         }
 
         .diagnosis-table td {
-            padding: 1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 0.9rem;
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.875rem;
+            color: var(--text-body);
         }
 
         .diagnosis-table tr:hover {
-            background: rgba(0, 212, 255, 0.05);
+            background: #f5f9ff;
         }
 
         .code-badge {
-            background: rgba(0, 212, 255, 0.2);
-            color: #00d4ff;
+            background: var(--blue-light);
+            color: var(--blue);
             padding: 0.25rem 0.5rem;
             border-radius: 6px;
             font-family: 'Courier New', monospace;
             font-size: 0.75rem;
+            font-weight: 600;
             display: inline-block;
             margin-bottom: 0.25rem;
         }
 
         .code-badge.icd11 {
-            background: rgba(81, 207, 102, 0.2);
-            color: #51cf66;
+            background: var(--green-light);
+            color: var(--green);
         }
 
         .no-diagnosis {
             text-align: center;
             padding: 3rem;
-            color: rgba(255, 255, 255, 0.6);
+            color: var(--text-muted);
         }
 
         .no-diagnosis i {
@@ -258,54 +270,53 @@
         }
 
         .modal-content {
-            background: rgba(10, 10, 10, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
             overflow: hidden;
         }
 
         .modal-header {
-            padding: 1.5rem 2rem;
-            background: rgba(0, 212, 255, 0.1);
-            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            padding: 1.15rem 1.5rem;
+            background: var(--blue-light);
+            border-bottom: 1px solid var(--border-light);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
         .modal-title {
-            color: white;
+            color: var(--text-heading);
             font-weight: 600;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             margin: 0;
         }
 
         .btn-close {
             background: none;
             border: none;
-            color: rgba(255, 255, 255, 0.6);
+            color: var(--text-muted);
             font-size: 1.5rem;
             cursor: pointer;
-            padding: 0.5rem;
+            padding: 0.25rem 0.5rem;
             border-radius: 50%;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
 
         .btn-close:hover {
-            color: white;
-            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-heading);
+            background: rgba(15, 39, 68, 0.06);
         }
 
         .modal-body {
-            padding: 2rem;
+            padding: 1.5rem;
         }
 
         .modal-footer {
-            padding: 1.5rem 2rem;
-            background: rgba(0, 0, 0, 0.2);
-            border-top: 1px solid rgba(0, 212, 255, 0.2);
+            padding: 1rem 1.5rem;
+            background: var(--bg-page);
+            border-top: 1px solid var(--border-light);
             display: flex;
             justify-content: flex-end;
             gap: 1rem;
@@ -314,8 +325,8 @@
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
+            gap: 1.25rem;
+            margin-bottom: 1.25rem;
         }
 
         .form-group {
@@ -328,39 +339,41 @@
         }
 
         .form-label {
-            color: rgba(255, 255, 255, 0.8);
-            font-weight: 500;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
+            color: var(--text-heading);
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-bottom: 0.4rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .form-control {
-            padding: 12px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            color: white;
+            padding: 10px 14px;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-body);
             font-size: 0.9rem;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             font-family: 'Inter', sans-serif;
         }
 
+        .form-control::placeholder { color: var(--text-light); }
+
         .form-control:focus {
             outline: none;
-            border-color: #00d4ff;
-            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.1);
-            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--blue-mid);
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.12);
         }
 
         .alert {
-            padding: 1rem;
-            border-radius: 10px;
-            background: rgba(0, 212, 255, 0.1);
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            color: #00d4ff;
+            padding: 0.9rem 1.1rem;
+            border-radius: 8px;
+            background: var(--blue-light);
+            border: 1px solid #bcd7f5;
+            color: var(--blue);
             margin-top: 1rem;
+            font-size: 0.85rem;
         }
 
         @media (max-width: 1024px) {
@@ -406,12 +419,14 @@
                 <a href="/enhanced/dashboard" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
                 <a href="/patients/add" class="nav-link"><i class="fas fa-user-plus"></i> New Patient</a>
                 <a href="/patients/" class="nav-link"><i class="fas fa-users"></i> Patients</a>
+                <a href="/treatments/" class="nav-link"><i class="fas fa-heartbeat"></i> Treatment Plans</a>
+                <a href="/appointments/" class="nav-link"><i class="fas fa-calendar-check"></i> Appointments</a>
                 <a href="/reports/" class="nav-link"><i class="fas fa-chart-line"></i> Reports</a>
                 <a href="/fhir/" class="nav-link"><i class="fas fa-database"></i> FHIR</a>
                 <a href="/search-page" class="nav-link"><i class="fas fa-search"></i> Search Code</a>
                 <a href="/diagnosis-page" class="nav-link"><i class="fas fa-save"></i> Save Diagnosis</a>
                 <a href="/history-page" class="nav-link"><i class="fas fa-history"></i> Patient History</a>
-                <hr style="border-color: rgba(0, 212, 255, 0.2); margin: 1rem 0;">
+                <hr style="border: none; border-top: 1px solid var(--border); opacity: 0.25; margin: 1rem 0;">
                 <a href="/enhanced/logout" class="nav-link"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </nav>
         </div>
@@ -507,6 +522,17 @@
                                             <td><span class="abha-id">{{ patient.abha_id[:2] }}-{{ patient.abha_id[2:6] }}-{{ patient.abha_id[6:10] }}-{{ patient.abha_id[10:14] }}</span></td>
                                         </tr>
                                         {% endif %}
+                                        {% if patient.disease_name or patient.icd11_code %}
+                                        <tr>
+                                            <td>Disease:</td>
+                                            <td>
+                                                {{ patient.disease_name or '-' }}
+                                                {% if patient.icd11_code %}
+                                                <span class="patient-id" style="margin-left: 0.4rem;">{{ patient.icd11_code }}</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endif %}
                                         <tr>
                                             <td>Created:</td>
                                             <td>{{ patient.created_at[:10] }}</td>
@@ -524,17 +550,17 @@
                                 </div>
                                 <div class="card-body">
                                     <div style="margin-bottom: 1rem;">
-                                        <strong style="color: rgba(255, 255, 255, 0.8);">Medical History:</strong>
-                                        <p style="margin-top: 0.5rem; color: white;">{{ patient.medical_history or 'No medical history recorded' }}</p>
+                                        <strong style="color: var(--text-heading);">Medical History:</strong>
+                                        <p style="margin-top: 0.35rem; color: var(--text-body);">{{ patient.medical_history or 'No medical history recorded' }}</p>
                                     </div>
                                     <div style="margin-bottom: 1rem;">
-                                        <strong style="color: rgba(255, 255, 255, 0.8);">Allergies:</strong>
-                                        <p style="margin-top: 0.5rem; color: white;">{{ patient.allergies or 'No known allergies' }}</p>
+                                        <strong style="color: var(--text-heading);">Allergies:</strong>
+                                        <p style="margin-top: 0.35rem; color: var(--text-body);">{{ patient.allergies or 'No known allergies' }}</p>
                                     </div>
                                     {% if patient.address %}
                                     <div>
-                                        <strong style="color: rgba(255, 255, 255, 0.8);">Address:</strong>
-                                        <p style="margin-top: 0.5rem; color: white;">{{ patient.address }}</p>
+                                        <strong style="color: var(--text-heading);">Address:</strong>
+                                        <p style="margin-top: 0.35rem; color: var(--text-body);">{{ patient.address }}</p>
                                     </div>
                                     {% endif %}
                                 </div>
@@ -571,17 +597,17 @@
                                                 <td>
                                                     {% if diagnosis.namaste_code %}
                                                         <span class="code-badge">{{ diagnosis.namaste_code }}</span><br>
-                                                        <small style="color: rgba(255, 255, 255, 0.7);">{{ diagnosis.namaste_name }}</small>
+                                                        <small style="color: var(--text-muted);">{{ diagnosis.namaste_name }}</small>
                                                     {% else %}
-                                                        <span style="color: rgba(255, 255, 255, 0.4);">-</span>
+                                                        <span style="color: var(--text-light);">-</span>
                                                     {% endif %}
                                                 </td>
                                                 <td>
                                                     {% if diagnosis.icd11_code %}
                                                         <span class="code-badge icd11">{{ diagnosis.icd11_code }}</span><br>
-                                                        <small style="color: rgba(255, 255, 255, 0.7);">{{ diagnosis.icd11_name }}</small>
+                                                        <small style="color: var(--text-muted);">{{ diagnosis.icd11_name }}</small>
                                                     {% else %}
-                                                        <span style="color: rgba(255, 255, 255, 0.4);">-</span>
+                                                        <span style="color: var(--text-light);">-</span>
                                                     {% endif %}
                                                 </td>
                                                 <td>{{ diagnosis.notes or '-' }}</td>
@@ -656,7 +682,7 @@
 
                         <div class="alert">
                             <i class="fas fa-info-circle"></i> 
-                            You can search for codes using the <a href="{{ url_for('search_page') }}" target="_blank" style="color: #00d4ff;">Search Codes</a> page.
+                            You can search for codes using the <a href="{{ url_for('search_page') }}" target="_blank" style="color: var(--blue); font-weight: 600;">Search Codes</a> page.
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -731,15 +757,15 @@
             }
             
             .alert-success {
-                background: rgba(81, 207, 102, 0.15);
-                border-color: rgba(81, 207, 102, 0.3);
-                color: #51cf66;
+                background: var(--green-light);
+                border-color: #a7d7bc;
+                color: #145c38;
             }
             
             .alert-error {
-                background: rgba(255, 107, 107, 0.15);
-                border-color: rgba(255, 107, 107, 0.3);
-                color: #ff6b6b;
+                background: var(--red-light);
+                border-color: #fca5a5;
+                color: #991b1b;
             }
             
             .alert-close {
