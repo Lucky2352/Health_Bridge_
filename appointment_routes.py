@@ -34,13 +34,22 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
+from db import singleton
 from diagnosis_models import DiagnosisDatabase
 
 logger = logging.getLogger(__name__)
 
 appointment_bp = Blueprint('appointments', __name__, url_prefix='/appointments')
 
-diagnosis_db = DiagnosisDatabase()
+@singleton
+def get_diagnosis_db():
+    """The process-wide DiagnosisDatabase, built on first use.
+
+    This used to be constructed at import time, which ran the full schema setup
+    before the server could accept a connection. singleton also supplies the
+    lock, so two concurrent first requests do not both construct it.
+    """
+    return DiagnosisDatabase()
 
 
 @appointment_bp.app_template_filter('when')
@@ -140,12 +149,11 @@ def _queue():
     doctor - useful precisely because they are the escalation path.
     """
     if current_user.is_admin():
-        merged = []
-        for doctor in diagnosis_db.get_available_doctors():
-            merged.extend(diagnosis_db.get_doctor_appointments(doctor['doctor_id']))
-        return merged
+        # One query across all doctors rather than one per doctor, in the same
+        # doctor-by-doctor order the loop produced.
+        return get_diagnosis_db().get_all_appointments()
 
-    return diagnosis_db.get_doctor_appointments(_current_doctor_id())
+    return get_diagnosis_db().get_doctor_appointments(_current_doctor_id())
 
 
 # --------------------------------------------------------------------------
@@ -201,7 +209,7 @@ def api_list():
         if statuses:
             items = [a for a in items if a.get('status') in statuses]
     else:
-        items = diagnosis_db.get_doctor_appointments(_current_doctor_id(), statuses)
+        items = get_diagnosis_db().get_doctor_appointments(_current_doctor_id(), statuses)
 
     return jsonify({
         'success': True,
@@ -223,7 +231,7 @@ def _load_for_response(appointment_id):
     set and the redirect to send the caller to, so every transition route below can
     do the same two lines of guard.
     """
-    appointment = diagnosis_db.get_appointment(appointment_id)
+    appointment = get_diagnosis_db().get_appointment(appointment_id)
     if not appointment:
         flash('Appointment not found', 'error')
         return None, redirect(url_for('appointments.appointment_list'))
@@ -256,7 +264,7 @@ def accept_appointment(appointment_id):
 
     # No date in the POST means "the slot the patient asked for is fine", so the
     # stored requested value stands rather than being blanked.
-    diagnosis_db.accept_appointment(appointment_id, when, note or None)
+    get_diagnosis_db().accept_appointment(appointment_id, when, note or None)
 
     who = appointment.get('patient_name') or appointment.get('patient_id')
     session['appointment_success'] = (
@@ -275,7 +283,7 @@ def decline_appointment(appointment_id):
         return refusal
 
     note = request.form.get('doctor_note', '').strip()
-    diagnosis_db.decline_appointment(appointment_id, note or None)
+    get_diagnosis_db().decline_appointment(appointment_id, note or None)
 
     who = appointment.get('patient_name') or appointment.get('patient_id')
     session['appointment_success'] = f'Appointment request from {who} declined.'
@@ -303,9 +311,9 @@ def reschedule_appointment(appointment_id):
         # Not booked yet, so this is an accept that also moves the slot. Doing it as
         # an accept keeps the patient from seeing a "rescheduled" request they never
         # had confirmed in the first place.
-        diagnosis_db.accept_appointment(appointment_id, when, None)
+        get_diagnosis_db().accept_appointment(appointment_id, when, None)
     else:
-        diagnosis_db.reschedule_appointment(appointment_id, when)
+        get_diagnosis_db().reschedule_appointment(appointment_id, when)
 
     who = appointment.get('patient_name') or appointment.get('patient_id')
     session['appointment_success'] = (
@@ -333,7 +341,7 @@ def cancel_appointment(appointment_id):
         )
         return redirect(url_for('appointments.appointment_list'))
 
-    diagnosis_db.cancel_appointment(appointment_id)
+    get_diagnosis_db().cancel_appointment(appointment_id)
 
     who = appointment.get('patient_name') or appointment.get('patient_id')
     session['appointment_success'] = f'Appointment with {who} cancelled.'

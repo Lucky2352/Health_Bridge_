@@ -1,7 +1,6 @@
 import pandas as pd
 import db
-from datetime import datetime, timedelta
-import json
+from datetime import datetime
 
 class PandasAnalytics:
     def __init__(self):

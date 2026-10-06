@@ -16,3 +16,8 @@ static/uploads/
 *.xlsx
 *.csv
 !namaste_codes.csv
+
+# Scratch files from profiling / import-time experiments
+tmp_*.py
+*.log
+.importtime.txt

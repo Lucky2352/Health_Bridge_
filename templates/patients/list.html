@@ -406,13 +406,14 @@
                                     <th>Gender</th>
                                     <th>Contact</th>
                                     <th>ABHA ID</th>
+                                    <th>Disease / Code</th>
                                     <th>Created Date</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="patientsTable">
                                 <tr>
-                                    <td colspan="8" class="no-results">Loading patients...</td>
+                                    <td colspan="9" class="no-results">Loading patients...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -459,7 +460,7 @@
                 displayPatients(patients);
             } catch (error) {
                 document.getElementById('patientsTable').innerHTML = 
-                    '<tr><td colspan="8" class="no-results">Failed to load patients</td></tr>';
+                    '<tr><td colspan="9" class="no-results">Failed to load patients</td></tr>';
             } finally {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('patientsContainer').style.display = 'block';
@@ -470,32 +471,53 @@
             const tbody = document.getElementById('patientsTable');
             
             if (patients.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="no-results">No patients found for your account. <a href="/patients/add">Add your first patient</a></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="no-results">No patients found for your account. <a href="/patients/add">Add your first patient</a></td></tr>';
                 return;
             }
             
             tbody.innerHTML = patients.map(patient => `
                 <tr>
-                    <td><span class="patient-id">${patient.patient_id}</span></td>
-                    <td>${patient.name}</td>
-                    <td>${patient.age}</td>
-                    <td>${patient.gender}</td>
-                    <td>${patient.contact}</td>
+                    <td><span class="patient-id">${escapeHtml(patient.patient_id)}</span></td>
+                    <td>${escapeHtml(patient.name)}</td>
+                    <td>${escapeHtml(patient.age)}</td>
+                    <td>${escapeHtml(patient.gender)}</td>
+                    <td>${escapeHtml(patient.contact)}</td>
                     <td>${patient.abha_id ? formatABHAID(patient.abha_id) : '-'}</td>
-                    <td>${new Date(patient.created_at).toLocaleDateString()}</td>
+                    <td>${patient.disease_name
+                        ? escapeHtml(patient.disease_name) + (patient.icd11_code
+                            ? ' <span class="patient-id">' + escapeHtml(patient.icd11_code) + '</span>' : '')
+                        : '-'}</td>
+                    <td>${escapeHtml(new Date(patient.created_at).toLocaleDateString())}</td>
                     <td>
-                        <a href="/patients/${patient.patient_id}" class="btn btn-sm btn-view">
+                        <a href="/patients/${encodeURIComponent(patient.patient_id)}" class="btn btn-sm btn-view">
                             <i class="fas fa-eye"></i> View
                         </a>
-                        <a href="/patients/${patient.patient_id}/edit" class="btn btn-sm btn-edit">
+                        <a href="/patients/${encodeURIComponent(patient.patient_id)}/edit" class="btn btn-sm btn-edit">
                             <i class="fas fa-edit"></i> Edit
                         </a>
-                        <button class="btn btn-sm btn-delete" onclick="deletePatient('${patient.patient_id}')">
+                        <button class="btn btn-sm btn-delete" onclick="deletePatient('${escapeAttr(patient.patient_id)}')">
                             <i class="fas fa-trash"></i> Delete
                         </button>
                     </td>
                 </tr>
             `).join('');
+        }
+
+        // These cells are built with innerHTML, so anything a clinician typed into
+        // the register (a name of "<img onerror=...>") would otherwise execute for
+        // every doctor who opens the list. Escaped at the boundary rather than
+        // trusted.
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // For values interpolated into a single-quoted JS string inside an
+        // onclick attribute, where an HTML entity would not terminate the string.
+        function escapeAttr(value) {
+            return String(value == null ? '' : value)
+                .replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
         function deletePatient(patientId) {

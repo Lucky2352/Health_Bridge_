@@ -11,21 +11,33 @@ from treatment_routes import treatment_bp
 from appointment_routes import appointment_bp
 from fhir_routes import fhir_bp
 from reports_routes import reports_bp
+# Imported by name, not as the module: this file already binds ``db`` to a
+# Database instance below, and shadowing the module with it would be a trap.
+from db import singleton
 from utils.namaste_service import get_namaste_service
 from database import Database
+from diagnosis_models import DiagnosisDatabase
+from patient_models import PatientDatabase
 from fhir_service import FHIRService
 from fhir_codesystem import FHIRCodeSystem
-from fhir_conceptmap import ConceptMapper
-from jwt_auth import jwt_required
+from fhir_conceptmap import ConceptMapper, FHIRConceptMap
+from fhir_bundle import FHIRBundleStorage, FHIRBundleValidator, FHIROperationOutcome
+from jwt_auth import JWTAuth, jwt_required
 from auth_service import AuthService
 from icd11_api import (
-    search_icd11, suggest_diseases, configure_icd_api,
+    search_icd11, suggest_diseases,
     gemini_status, check_connection, last_error,
 )
+from datetime import datetime
 import uuid
 import re
 import os
 import logging
+
+# The entrypoint is the one place that owns process-wide logging setup. It used to
+# live in enhanced_auth.py, where importing that module reconfigured the root
+# logger for anything that imported it first.
+logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -66,28 +78,61 @@ app.register_blueprint(fhir_bp)
 # Register reports & analytics blueprint
 app.register_blueprint(reports_bp)
 
-# Initialize enhanced auth database
-enhanced_db = EnhancedAuthDB()
+# Process-wide services, each built once on first use.
+#
+# These used to be module-level assignments at import time. On this project's
+# Neon connection that meant opening a pool, running the schema DDL and seeding
+# the default users before the server could serve anything - about 13s of the
+# 14s startup, and all of it paid again on every restart. Nothing below reads
+# them until a request arrives, so they are built at that point instead.
+#
+# db.singleton supplies the lock these hand-rolled caches lacked, so two
+# concurrent first requests cannot both construct them.
+@singleton
+def get_enhanced_db():
+    # auto_create: HEAD seeded the default accounts from here; enhanced_routes
+    # does the same, so either entry point produces a usable login.
+    return EnhancedAuthDB()
+
+@singleton
+def get_namaste_svc():
+    return get_namaste_service('namaste_codes.csv')
+
+@singleton
+def get_db():
+    return Database()
+
+@singleton
+def get_auth_svc():
+    return AuthService()
+
+@singleton
+def get_concept_mapper():
+    return ConceptMapper(get_namaste_svc(), search_icd11)
+
+@singleton
+def get_bundle_storage():
+    return FHIRBundleStorage()
+
+# Diagnosis and patient records. These were constructed inside the handlers
+# below, so every request that touched a patient record opened its own object
+# and ran its schema setup again. They are the same objects the blueprints hold.
+@singleton
+def get_diagnosis_db():
+    return DiagnosisDatabase()
+
+@singleton
+def get_patient_db():
+    return PatientDatabase()
+
 
 @login_manager.user_loader
 def load_user(user_id):
     try:
-        return enhanced_db.get_user_by_id(int(user_id))
+        return get_enhanced_db().get_user_by_id(int(user_id))
     except (ValueError, TypeError):
         # Handle old string-based user IDs
         return None
-
-# Initialize services
-namaste_service = get_namaste_service('namaste_codes.csv')
-db = Database()
-auth = AuthService()
-concept_mapper = ConceptMapper(namaste_service, search_icd11)
-
-# Configure ICD-11 API with your WHO credentials
-configure_icd_api(
-    client_id=os.getenv('ICD11_CLIENT_ID', 'your-client-id-here'),
-    client_secret=os.getenv('ICD11_CLIENT_SECRET', 'your-client-secret-here')
-)
 
 @app.route('/icd11/search')
 @login_required
@@ -123,7 +168,11 @@ def llm_search_icd():
 def icd11_suggest():
     """Live autocomplete: returns disease name suggestions with ICD-11 codes as the doctor types."""
     prefix = request.args.get('q', '').strip()
-    if not prefix:
+    # Same 2-character floor as /search. A single letter is not a usable medical
+    # prefix, and every request here costs a Gemini call -- which the search page
+    # fires on every debounced keystroke. Returns [] rather than a 400 because the
+    # callers feed the result straight to renderSuggestions, which expects a list.
+    if len(prefix) < 2:
         return jsonify([])
     suggestions = suggest_diseases(prefix)
     return jsonify(suggestions)
@@ -157,15 +206,15 @@ def namaste_status():
         # Asked of the service, which resolves the path itself -- a bare
         # os.path.exists here reported "no fallback" whenever Flask was not
         # started from the repo root, whatever was actually on disk.
-        'csv_fallback_available': bool(namaste_service.csv_data),
-        'csv_fallback_path': str(namaste_service.csv_file),
-        'csv_rows_loaded': len(namaste_service.csv_data),
+        'csv_fallback_available': bool(get_namaste_svc().csv_data),
+        'csv_fallback_path': str(get_namaste_svc().csv_file),
+        'csv_rows_loaded': len(get_namaste_svc().csv_data),
         'service_ready': True
     }
     
     # Test a simple query to check service health
     try:
-        test_response = namaste_service.get_namaste_codes('fever')
+        test_response = get_namaste_svc().get_namaste_codes('fever')
         status['last_test'] = {
             'query': 'fever',
             'source': test_response.get('source'),
@@ -214,7 +263,7 @@ def translate_code():
     icd_to_namaste = {v['code']: k for k, v in namaste_to_icd.items()}
     
     try:
-        csv_data = getattr(namaste_service, 'csv_data', [])
+        csv_data = getattr(get_namaste_svc(), 'csv_data', [])
         
         if system == 'namaste' or code.startswith('NAM-'):
             # NAMASTE to ICD-11
@@ -271,14 +320,12 @@ def patient_dashboard_stats():
         return jsonify({'error': 'Patient ID not found'}), 400
     
     try:
-        from diagnosis_models import DiagnosisDatabase
-        diagnosis_db = DiagnosisDatabase()
         
         # Get data for current patient using patient_id
-        diagnoses = diagnosis_db.get_patient_diagnoses(current_user.patient_id)
-        prescriptions = diagnosis_db.get_patient_prescriptions(current_user.patient_id)
-        appointments = diagnosis_db.get_patient_appointments(current_user.patient_id)
-        treatments = diagnosis_db.get_patient_treatments(current_user.patient_id)
+        diagnoses = get_diagnosis_db().get_patient_diagnoses(current_user.patient_id)
+        prescriptions = get_diagnosis_db().get_patient_prescriptions(current_user.patient_id)
+        appointments = get_diagnosis_db().get_patient_appointments(current_user.patient_id)
+        treatments = get_diagnosis_db().get_patient_treatments(current_user.patient_id)
         
         stats = {
             'records': len(diagnoses),
@@ -302,7 +349,10 @@ def patient_dashboard_stats():
         
         return jsonify(stats)
         
-    except Exception as e:
+    except Exception:
+        # The portal renders these cards from this endpoint; a zeros response
+        # keeps the page usable when a query fails.
+        logger.exception('Patient dashboard stats failed')
         return jsonify({
             'records': 0,
             'appointments': 0,
@@ -334,10 +384,8 @@ def get_patient_diagnoses():
         return jsonify({'error': 'Patient ID not found'}), 400
     
     try:
-        from diagnosis_models import DiagnosisDatabase
-        diagnosis_db = DiagnosisDatabase()
         
-        diagnoses = diagnosis_db.get_patient_diagnoses(current_user.patient_id)
+        diagnoses = get_diagnosis_db().get_patient_diagnoses(current_user.patient_id)
         
         return jsonify({
             'success': True,
@@ -401,10 +449,10 @@ def unified_search():
     
     # Log search operation
     user_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
-    db.log_search_operation(user_id, query, 'unified_search')
+    get_db().log_search_operation(user_id, query, 'unified_search')
     
     # Step 1: Search NAMASTE codes (API + CSV fallback)
-    namaste_response = namaste_service.get_namaste_codes(query)
+    namaste_response = get_namaste_svc().get_namaste_codes(query)
     namaste_results = namaste_response.get('results', [])
     
     # Step 2: Search ICD-11 via the Gemini-backed lookup
@@ -450,8 +498,6 @@ def add_diagnosis():
         }), 400
     
     try:
-        from diagnosis_models import DiagnosisDatabase
-        diagnosis_db = DiagnosisDatabase()
         
         data = request.get_json()
         if not data or not data.get('patient_id') or not data.get('condition_name'):
@@ -465,21 +511,19 @@ def add_diagnosis():
         patient_user = None
         
         # Get list of available patients for debugging
-        from diagnosis_models import DiagnosisDatabase
-        diagnosis_db = DiagnosisDatabase()
-        available_patients = diagnosis_db.get_all_patients()
+        available_patients = get_diagnosis_db().get_all_patients()
         available_ids = [p['patient_id'] for p in available_patients]
         
         # Try different lookup methods
         if patient_identifier.startswith('P') and len(patient_identifier) == 5:
             # Patient ID format (P0001)
-            patient_user = enhanced_db.get_user_by_patient_id(patient_identifier)
+            patient_user = get_enhanced_db().get_user_by_patient_id(patient_identifier)
         elif '@' in patient_identifier:
             # Email
-            patient_user = enhanced_db.get_user_by_email(patient_identifier)
+            patient_user = get_enhanced_db().get_user_by_email(patient_identifier)
         else:
             # Username
-            patient_user = enhanced_db.get_user_by_username(patient_identifier)
+            patient_user = get_enhanced_db().get_user_by_username(patient_identifier)
         
         if not patient_user or patient_user.role != 'patient':
             return jsonify({
@@ -488,7 +532,7 @@ def add_diagnosis():
             }), 400
         
         # Validate doctor can add diagnosis for this patient
-        if not diagnosis_db.validate_doctor_patient_relationship(current_user.id, patient_user.patient_id):
+        if not get_diagnosis_db().validate_doctor_patient_relationship(current_user.id, patient_user.patient_id):
             return jsonify({
                 'status': 'error',
                 'error': 'Not authorized to add diagnosis for this patient'
@@ -500,7 +544,7 @@ def add_diagnosis():
         notes = data.get('notes', '')
         
         # Add diagnosis using doctor_id and patient_id
-        diagnosis_id = diagnosis_db.add_diagnosis(
+        diagnosis_id = get_diagnosis_db().add_diagnosis(
             doctor_id=current_user.doctor_id,
             patient_id=patient_user.patient_id,
             condition_name=condition_name,
@@ -531,11 +575,9 @@ def get_patient_fhir(patient_id):
     own read-only views instead.
     """
     try:
-        from patient_models import PatientDatabase
-        patient_db = PatientDatabase()
         
         # Get patient info
-        patient = patient_db.get_patient(patient_id)
+        patient = get_patient_db().get_patient(patient_id)
         if not patient:
             return jsonify({'error': 'Patient not found'}), 404
         
@@ -562,19 +604,17 @@ def get_patient_history(patient_id):
         }), 403
 
     try:
-        from patient_models import PatientDatabase
-        patient_db = PatientDatabase()
         
         # Get patient info first to verify it exists
-        patient = patient_db.get_patient(patient_id)
+        patient = get_patient_db().get_patient(patient_id)
         if not patient:
             return jsonify({'error': 'Patient not found'}), 404
         
         # Get diagnosis records from patient database
-        patient_records = patient_db.get_patient_diagnoses(patient_id)
+        patient_records = get_patient_db().get_patient_diagnoses(patient_id)
         
         # Also get records from the old diagnosis database for compatibility
-        old_records = db.get_patient_history(patient_id)
+        old_records = get_db().get_patient_history(patient_id)
         
         # Combine and format records
         all_records = []
@@ -667,7 +707,7 @@ def history_page():
 @login_required
 def namaste_codesystem():
     """Return complete NAMASTE CodeSystem"""
-    csv_data = getattr(namaste_service, 'csv_data', [])
+    csv_data = getattr(get_namaste_svc(), 'csv_data', [])
     return jsonify(FHIRCodeSystem.create_namaste_codesystem(csv_data))
 
 @app.route('/fhir/CodeSystem/icd11')
@@ -682,7 +722,7 @@ def icd11_codesystem():
 @login_required
 def search_valueset(query):
     """Return ValueSet for search query"""
-    namaste_results = namaste_service.search(query)
+    namaste_results = get_namaste_svc().search(query)
     icd11_results = search_icd11(query)
     return jsonify(FHIRCodeSystem.create_search_valueset(query, namaste_results, icd11_results))
 
@@ -690,7 +730,7 @@ def search_valueset(query):
 @login_required
 def get_conceptmap():
     """Return complete NAMASTE to ICD-11 ConceptMap"""
-    mappings = concept_mapper.get_all_mappings()
+    mappings = get_concept_mapper().get_all_mappings()
     return jsonify(FHIRConceptMap.create_conceptmap(mappings))
 
 @app.route('/conceptmap/translate')
@@ -704,11 +744,11 @@ def translate_concept():
     
     # Log translation operation
     user_id = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
-    db.log_search_operation(user_id, code, 'code_translation')
+    get_db().log_search_operation(user_id, code, 'code_translation')
     
     # Get source concept details
     source_concept = None
-    csv_data = getattr(namaste_service, 'csv_data', [])
+    csv_data = getattr(get_namaste_svc(), 'csv_data', [])
     for row in csv_data:
         if row.get('code') == code:
             source_concept = row
@@ -718,7 +758,7 @@ def translate_concept():
         return jsonify({'error': 'NAMASTE code not found'}), 404
     
     # Translate to ICD-11
-    target_mappings = concept_mapper.translate_code(code)
+    target_mappings = get_concept_mapper().translate_code(code)
     
     return jsonify(FHIRConceptMap.create_translation_response(
         code, 
@@ -736,7 +776,7 @@ def valueset_lookup():
         return jsonify({'error': 'Query parameter q is required'}), 400
     
     # Search both NAMASTE and ICD-11
-    namaste_results = namaste_service.search(query)
+    namaste_results = get_namaste_svc().search(query)
     icd11_results = search_icd11(query)
     
     # Create FHIR Parameters response
@@ -857,7 +897,7 @@ def fhir_translate():
     
     # Find NAMASTE code
     source_concept = None
-    csv_data = getattr(namaste_service, 'csv_data', [])
+    csv_data = getattr(get_namaste_svc(), 'csv_data', [])
     for row in csv_data:
         if row.get('code') == code:
             source_concept = row
@@ -880,7 +920,7 @@ def fhir_translate():
         }), 404
     
     # Translate using ConceptMapper
-    target_mappings = concept_mapper.translate_code(code)
+    target_mappings = get_concept_mapper().translate_code(code)
     
     if not target_mappings:
         return jsonify({
@@ -964,7 +1004,7 @@ def get_jwt_token():
         return jsonify({'error': 'Username and password required'}), 400
     
     # Validate credentials
-    if auth.validate_user(data['username'], data['password']):
+    if get_auth_svc().validate_user(data['username'], data['password']):
         token = JWTAuth.generate_token(data['username'])
         return jsonify({
             'access_token': token,
@@ -993,7 +1033,7 @@ def upload_bundle():
             return jsonify(FHIROperationOutcome.create_error(validation_errors)), 400
         
         # Store bundle
-        bundle_id = bundle_storage.store_bundle(
+        bundle_id = get_bundle_storage().store_bundle(
             bundle_data, 
             uploaded_by=request.jwt_user,
             validation_status='valid'

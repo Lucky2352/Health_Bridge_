@@ -52,17 +52,42 @@ so the app keeps working offline. That is how the one-time data migration reads 
 legacy files.
 """
 
+import functools
 import os
 import re
 import sqlite3 as _sqlite3
 import threading
-import time
+# Aliased because ``from datetime import ... time`` below binds the *datetime.time*
+# class to the name ``time`` in this namespace, which shadowed the module and left
+# the connect-retry back-off calling ``datetime.time.sleep``. That raised
+# AttributeError from inside the exception handler, replacing a clear
+# "could not connect" error with a confusing one.
+import time as _time
 from datetime import date, datetime, time, timedelta
 
-import psycopg
+# psycopg is imported lazily on first use to avoid the ~0.1-0.2s import cost
+# at module load time when running on SQLite (which is the default when
+# DATABASE_URL is not set). The actual connection functions will import it
+# when a PostgreSQL connection is actually requested.
+_psycopg = None
+
+def _get_psycopg():
+    """Lazily import psycopg on first use."""
+    global _psycopg
+    if _psycopg is None:
+        import psycopg
+        _psycopg = psycopg
+    return _psycopg
 
 #: ``TransactionStatus.IDLE`` - i.e. no transaction currently open.
-_pg_status_idle = psycopg.pq.TransactionStatus.IDLE
+# Accessed lazily via _get_psycopg().pq.TransactionStatus.IDLE
+_pg_status_idle = None
+
+def _get_pg_status_idle():
+    global _pg_status_idle
+    if _pg_status_idle is None:
+        _pg_status_idle = _get_psycopg().pq.TransactionStatus.IDLE
+    return _pg_status_idle
 
 # --------------------------------------------------------------------------- #
 # Configuration
@@ -97,7 +122,7 @@ def _int_env(name, default):
 
 
 def _connect_kwargs():
-    """Timeouts for :func:`psycopg.connect`.
+    """Timeouts for :func:`_get_psycopg().connect`.
 
     Left to its own devices psycopg waits on the operating system's default
     socket timeout, which can be several minutes. A free-tier Neon instance
@@ -109,7 +134,7 @@ def _connect_kwargs():
     ``statement_timeout`` cannot be passed in the startup packet because
     PgBouncer rejects parameters it does not track ("unsupported startup
     parameter in options"); they are applied afterwards by
-    :func:`_apply_session_timeouts` instead.
+    :func:`_init_session` instead.
     """
     return {
         'autocommit': False,
@@ -117,49 +142,46 @@ def _connect_kwargs():
     }
 
 
-def _apply_session_timeouts(pg):
-    """Bound how long a single statement or lock wait may block, best effort.
+def _init_session(pg, schema):
+    """Apply the per-connection GUCs in a single round trip.
 
-    Set after connecting rather than in the startup packet, because the
-    ``-pooler`` endpoint only accepts a small allow-list of startup parameters.
+    Every statement sent through Neon's ``-pooler`` endpoint costs a network
+    round trip of roughly a second, so issuing ``SET search_path`` and the two
+    timeouts one at a time tripled the cost of opening a connection - and the app
+    opens five at import. The settings are independent of each other, so they are
+    batched into one ``execute``; the resulting behaviour is identical.
 
-    Best effort for a second reason: PgBouncer runs in *transaction* pooling
-    mode and may hand the next transaction to a different backend, which will
-    not have inherited these settings. The ones that do apply still turn most
-    hangs into ordinary, catchable exceptions. Set
-    ``HB_DB_STATEMENT_TIMEOUT=0`` to switch them off.
+    Deliberately no ``idle_in_transaction_session_timeout``. Behind PgBouncer the
+    server-side backend is pinned to whichever client left a transaction open, so
+    that timeout makes PostgreSQL kill a connection out from under the pooler
+    mid-transaction, which desynchronises the client from PgBouncer and turns
+    every later command on that connection into a hang.
+
+    Set ``HB_DB_STATEMENT_TIMEOUT=0`` to skip the timeouts.
     """
-    statement_timeout = _int_env('HB_DB_STATEMENT_TIMEOUT', 30000)
-    if statement_timeout <= 0:
-        return
+    statements = [f'SET search_path TO "{schema}", public']
 
-    settings = (
+    statement_timeout = _int_env('HB_DB_STATEMENT_TIMEOUT', 30000)
+    if statement_timeout > 0:
         # A blocked statement waits on lock_timeout, not statement_timeout, so
         # without this a row or table lock would still block indefinitely.
-        f'SET statement_timeout = {statement_timeout}',
-        f'SET lock_timeout = {min(statement_timeout, 10000)}',
-    )
-    # Deliberately no idle_in_transaction_session_timeout. Behind PgBouncer the
-    # server-side backend is pinned to whichever client left a transaction open,
-    # so this timeout makes PostgreSQL kill a connection out from under the
-    # pooler mid-transaction, which desynchronises the client from PgBouncer and
-    # turns every later command on that connection into a hang.
-    with pg.cursor() as cur:
-        for statement in settings:
-            try:
-                cur.execute(statement)
-            except Exception:
-                # An older or restricted server may refuse one of these; the
-                # others are still worth having.
-                break
+        statements.append(f'SET statement_timeout = {statement_timeout}')
+        statements.append(f'SET lock_timeout = {min(statement_timeout, 10000)}')
 
-    # Each SET opens a transaction of its own. Without this the connection would
-    # sit idle-in-transaction from the moment it is created, holding that
-    # transaction open and stalling anything that needs a lock in the schema.
     try:
+        with pg.cursor() as cur:
+            cur.execute('; '.join(statements))
+        # Each SET opens a transaction of its own. Without this commit the
+        # connection would sit idle-in-transaction from the moment it is created,
+        # holding that transaction open and stalling anything needing a lock.
         pg.commit()
     except Exception:
-        pass
+        # An older or restricted server may refuse one of these; the others are
+        # still worth having, so never let session setup fail the connection.
+        try:
+            pg.rollback()
+        except Exception:
+            pass
 
 
 def __getattr__(name):
@@ -183,6 +205,75 @@ DEFAULT_SCHEMA = 'public'
 
 _created_schemas = set()
 _server_version = None
+
+#: Keys already passed to :func:`ensure_once` in this process.
+_initialised_tables = set()
+_init_lock = threading.Lock()
+
+
+def singleton(func):
+    """Decorate a zero-arg factory so its result is built once per process.
+
+    Wraps the hand-rolled ``if x is None: x = X()`` caches that were repeated
+    across the route modules, adding the two things those all lacked: a lock, so
+    two threads hitting a blueprint for the first time cannot both construct the
+    object and run its schema setup, and no marking-on-failure, so a constructor
+    that raises does not leave a broken object cached for the life of the process.
+
+    The attribute name on the wrapper is deliberately unhelpful so that a missed
+    call site reads as an error here rather than silently working in dev and
+    failing under the threaded server.
+    """
+
+    sentinel = object()
+    result = sentinel
+    lock = threading.Lock()
+
+    @functools.wraps(func)
+    def get():
+        nonlocal result
+        if result is not sentinel:
+            return result
+        with lock:
+            if result is sentinel:
+                result = func()
+            return result
+
+    return get
+
+
+def ensure_once(key, setup):
+    """Run ``setup`` the first time ``key`` is seen in this process.
+
+    Every ``init_db()``/``init_database()`` in this codebase issues the same
+    CREATE TABLE IF NOT EXISTS / ALTER TABLE ADD COLUMN statements, and they run
+    from a constructor. Constructors here are called at import time *and* inside
+    request handlers, so those idempotent statements were being re-sent over the
+    wire on every start and on many individual requests - roughly a dozen round
+    trips each, which on the Neon ``-pooler`` endpoint (PgBouncer in transaction
+    pooling mode) cost seconds, not milliseconds. That was the entire startup
+    time.
+
+    The statements are already written to be idempotent, so running them once is
+    behaviourally identical to running them every time - only the repetition goes
+    away. ``key`` must identify the *table set*, not just the file: two classes
+    share ``enhanced_auth.db`` and create different tables, so keying on the file
+    alone would let whichever ran first suppress the other's DDL.
+
+    Returns True when ``setup`` ran. A failure propagates and leaves ``key``
+    unmarked, so the next caller retries rather than proceeding against a schema
+    that was never created.
+    """
+    if key in _initialised_tables:
+        return False
+    with _init_lock:
+        # Re-checked under the lock: the dev server is threaded, so two first
+        # requests can arrive together.
+        if key in _initialised_tables:
+            return False
+        setup()
+        _initialised_tables.add(key)
+    return True
 
 
 def _schema_for(db_file):
@@ -339,7 +430,6 @@ def _date_now_repl(m):
     amount, unit = mm.group(1), _INTERVAL_UNITS.get(mm.group(2).lower())
     if not unit:
         return 'CURRENT_DATE'
-    sign = '-' if amount.startswith('-') else ''
     return f"CURRENT_DATE - INTERVAL '{amount.lstrip('+-')} {unit}'"
 
 
@@ -351,7 +441,7 @@ def _rewrite_insert_or_replace(sql):
     if not m:
         return sql
 
-    head, table, col_list = m.group(1), m.group(2), m.group(3)
+    head, col_list = m.group(1), m.group(3)
     tail = sql[m.end():]                      # everything after "VALUES ("
     cols = [c.strip().strip('"') for c in col_list.split(',') if c.strip()]
     assignments = ', '.join(f'"{c}" = EXCLUDED."{c}"' for c in cols)
@@ -574,6 +664,53 @@ _ADD_COLUMN_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Patterns used to keep the cached catalog lookups in step with executed DDL.
+# The schema qualifier is optional because the translator emits qualified names,
+# e.g. CREATE TABLE IF NOT EXISTS "patients"."patients".
+_CREATE_TABLE_NAME_RE = re.compile(
+    r'^\s*CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?'
+    r'(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)\s*\.\s*'
+    r'(?:"(?P<name>[^"]+)"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))',
+    re.IGNORECASE,
+)
+_CREATE_TABLE_NAME_UNQUALIFIED_RE = re.compile(
+    r'^\s*CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?'
+    r'(?:"(?P<name>[^"]+)"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))',
+    re.IGNORECASE,
+)
+_ADD_COLUMN_NAME_RE = re.compile(
+    r'^\s*ALTER\s+TABLE\s+(?:ONLY\s+)?[\w".]+\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?'
+    r'(?:"(?P<name>[^"]+)"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))\s+(?P<type>[A-Za-z ]+)',
+    re.IGNORECASE,
+)
+
+# Only statements carrying their own no-op guard may be skipped.
+_IF_NOT_EXISTS_RE = re.compile(r'IF\s+NOT\s+EXISTS', re.IGNORECASE)
+
+_CREATE_INDEX_NAME_RE = re.compile(
+    r'^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?'
+    r'(?:"(?P<name>[^"]+)"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))',
+    re.IGNORECASE,
+)
+
+_ALTER_TARGET_TABLE_RE = re.compile(
+    r'^\s*ALTER\s+TABLE\s+(?:ONLY\s+)?'
+    r'(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)\s*\.\s*'
+    r'(?:"(?P<name>[^"]+)"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))',
+    re.IGNORECASE,
+)
+_ALTER_TARGET_TABLE_UNQUALIFIED_RE = re.compile(
+    r'^\s*ALTER\s+TABLE\s+(?:ONLY\s+)?'
+    r'(?:"(?P<name>[^"]+)"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))',
+    re.IGNORECASE,
+)
+
+
+def _alter_target_table(sql):
+    """The lower-cased table an ``ALTER TABLE`` targets, or '' if unclear."""
+    match = _ALTER_TARGET_TABLE_RE.match(sql) or _ALTER_TARGET_TABLE_UNQUALIFIED_RE.match(sql)
+    return ((match.group('name') or match.group('bare') or '').lower()) if match else ''
+
 
 def _add_column_guard(sql):
     """Add ``IF NOT EXISTS`` to ``ALTER TABLE ... ADD COLUMN``.
@@ -712,22 +849,20 @@ def _column_names(desc):
     return names
 
 
-def _row_factory(cursor, desc):
-    names = [d.name for d in desc]
-    rows = cursor.fetchall()
-    return [Row({n: _normalise(v) for n, v in zip(names, row)}) for row in rows]
-
-
-def _tuple_row_factory(cursor, desc):
-    return [tuple(_normalise(v) for v in row) for row in cursor.fetchall()]
-
-
 # --------------------------------------------------------------------------- #
 # Cursor / Connection
 # --------------------------------------------------------------------------- #
 
 _INSERT_RE = re.compile(r'^\s*INSERT\s+INTO\s+([\w".]+)', re.IGNORECASE)
 _DDL_RE = re.compile(r'^\s*(CREATE|ALTER|DROP)\b', re.IGNORECASE)
+
+# DDL that cannot change the set of tables or their columns, so it must not
+# invalidate the cached catalog lookups.
+_INDEX_OR_SCHEMA_RE = re.compile(
+    r'^\s*(?:CREATE|DROP)\s+(?:OR\s+REPLACE\s+)?'
+    r'(?:UNIQUE\s+)?(?:INDEX|SCHEMA|SEQUENCE|EXTENSION)\b',
+    re.IGNORECASE,
+)
 
 # Statements that are safe to replay after a reconnect.
 _READ_ONLY_RE = re.compile(r'^\s*(SELECT|WITH|SHOW|EXPLAIN)\b', re.IGNORECASE)
@@ -794,7 +929,12 @@ def _is_connection_lost(exc):
 
 
 class Cursor:
-    """Wraps a psycopg cursor, adding ``lastrowid`` and sqlite-ish row factories."""
+    """Wraps a psycopg cursor, adding ``lastrowid`` and sqlite-ish row factories.
+
+    ``cur`` may be ``None`` for a statement that was answered from the schema
+    cache instead of being sent to the server; the fetch methods then behave like
+    an exhausted cursor, which is what such a no-op statement would return.
+    """
 
     def __init__(self, connection, cur, raw_sql):
         self._conn = connection
@@ -807,18 +947,26 @@ class Cursor:
 
     # -- iteration / fetching ------------------------------------------------
     def fetchone(self):
+        if self._cur is None:
+            return None
         row = self._cur.fetchone()
         return self._coerce(row)
 
     def fetchmany(self, size=None):
+        if self._cur is None:
+            return []
         rows = self._cur.fetchmany(size) if size is not None else self._cur.fetchmany()
         return [self._coerce(r) for r in rows]
 
     def fetchall(self):
+        if self._cur is None:
+            return []
         rows = self._cur.fetchall()
         return [self._coerce(r) for r in rows]
 
     def __iter__(self):
+        if self._cur is None:
+            return iter(())
         for row in self._cur:
             yield self._coerce(row)
 
@@ -838,10 +986,6 @@ class Cursor:
     # -- passthrough ---------------------------------------------------------
     def __getattr__(self, name):
         return getattr(self._cur, name)
-
-    @property
-    def rowcount_(self):
-        return self._cur.rowcount
 
     def _coerce(self, row):
         """psycopg returns tuples; wrap them in Row when row_factory is set."""
@@ -946,18 +1090,77 @@ class Connection:
         self._shared = False
         self._id_columns = {}
         self._bool_cols = None
+        self._all_cols = None
+        self._index_names = None
         self._table_names = None
         self._lock = threading.RLock()
         self._dsn = dsn
         self._ensure_schema(dsn, schema)
-        self._pg = psycopg.connect(dsn, **_connect_kwargs())
+        self._pg = _get_psycopg().connect(dsn, **_connect_kwargs())
         # Kept as a convenience for ad-hoc queries, but the SQL translator
         # schema-qualifies every table reference, because PgBouncer transaction
         # pooling does not reliably preserve this setting between transactions.
-        with self._pg.cursor() as cur:
-            cur.execute(f'SET search_path TO "{schema}", public')
-        self._pg.commit()
-        _apply_session_timeouts(self._pg)
+        _init_session(self._pg, schema)
+
+    def _note_ddl(self, sql):
+        """Keep the cached catalog lookups in step with a DDL statement.
+
+        The guarded forms this codebase actually issues -
+        ``CREATE TABLE IF NOT EXISTS`` and ``ADD COLUMN IF NOT EXISTS`` - have a
+        predictable effect on the cached metadata, so the caches can be updated
+        in place instead of dropped. Anything else (a bare CREATE/DROP, an
+        unexpected form) falls back to a full invalidation, which is always
+        correct, merely slower.
+
+        Note this is best-effort bookkeeping: if a statement fails, the caller
+        re-raises and the process usually stops anyway, and the worst case for a
+        wrong guess is one stale entry that a later ``CREATE TABLE`` would
+        surface as "already exists".
+        """
+        statement = sql.strip()
+
+        # CREATE INDEX / DROP INDEX / CREATE SCHEMA never change the set of
+        # tables or their columns, so those caches are still accurate - but the
+        # index set itself does change, so refresh just that one.
+        if _INDEX_OR_SCHEMA_RE.match(statement):
+            if re.match(r'^\s*(?:CREATE|DROP)\s+(?:OR\s+REPLACE\s+)?(?:UNIQUE\s+)?INDEX\b',
+                        statement, re.IGNORECASE):
+                self._index_names = None
+            return
+
+        match = _CREATE_TABLE_NAME_RE.match(statement) or _CREATE_TABLE_NAME_UNQUALIFIED_RE.match(statement)
+        if match:
+            name = (match.group('name') or match.group('bare') or '').lower()
+            if name:
+                if self._table_names is not None:
+                    self._table_names.add(name)
+                # A brand-new table has no columns yet, and the CREATE body in
+                # this codebase is not parsed here, so drop just that entry.
+                if self._all_cols is not None:
+                    self._all_cols.pop(name, None)
+                self._id_columns.pop(name, None)
+            return
+
+        match = _ADD_COLUMN_NAME_RE.match(statement)
+        if match:
+            name = (match.group('name') or match.group('bare') or '')
+            declared = (match.group('type') or '').strip().upper()
+            table = _alter_target_table(statement)
+            # Only the BOOLEAN set is cached, so a column of any other type
+            # cannot make _bool_cols stale. ADD COLUMN never changes whether a
+            # table has an "id" column, so _id_columns stays valid too.
+            if name and declared.startswith('BOOL') and self._bool_cols is not None:
+                self._bool_cols.add(name)
+            if name and table and self._all_cols is not None:
+                self._all_cols.setdefault(table, set()).add(name.lower())
+            return
+
+        # DROP TABLE, or anything we cannot model: be conservative.
+        self._bool_cols = None
+        self._all_cols = None
+        self._index_names = None
+        self._table_names = None
+        self._id_columns.clear()
 
     def _reconnect(self):
         """Replace the underlying connection after the server dropped it.
@@ -974,13 +1177,12 @@ class Connection:
             self._pg.close()
         except Exception:
             pass
-        self._pg = psycopg.connect(self._dsn, **_connect_kwargs())
-        with self._pg.cursor() as cur:
-            cur.execute(f'SET search_path TO "{self.schema}", public')
-        self._pg.commit()
-        _apply_session_timeouts(self._pg)
+        self._pg = _get_psycopg().connect(self._dsn, **_connect_kwargs())
+        _init_session(self._pg, self.schema)
         # Column/table metadata may differ on the new backend session.
         self._bool_cols = None
+        self._all_cols = None
+        self._index_names = None
         self._table_names = None
         self._id_columns.clear()
 
@@ -1045,11 +1247,35 @@ class Connection:
 
         is_ddl = bool(_DDL_RE.match(translated))
 
-        # DDL can introduce or drop tables/columns, so the lookups go stale.
+        # A guarded CREATE/ALTER/INDEX that the catalog shows is already satisfied
+        # is a guaranteed no-op. Answering it from the cache instead of sending it
+        # keeps the ~45 such statements the app issues at import off the wire,
+        # where each costs about a second through Neon's pooler - that alone was
+        # over a hundred seconds of startup. The check runs on the *translated*
+        # statement, because that is where the translator has added the
+        # ``IF NOT EXISTS`` guard and schema-qualified the names.
+        # ``_all_statements_noop`` returns False unless every part is certain, so
+        # this can only ever skip work that would have changed nothing.
+        if is_ddl and not params:
+            try:
+                if self._all_statements_noop(translated):
+                    return Cursor(self, None, sql)
+            except Exception:
+                # Never let the optimisation itself break a statement; fall
+                # through and let the server be the judge.
+                pass
+
+        # DDL can introduce or drop tables/columns, so the cached catalog
+        # lookups can go stale. Blanket-invalidating them here is correct but
+        # ruinously slow: every init_db() issues dozens of CREATE TABLE IF NOT
+        # EXISTS / ADD COLUMN IF NOT EXISTS statements, and each invalidation
+        # forces the *next* statement to re-query information_schema. Behind
+        # Neon's pooler a round trip costs about a second, so the app spent well
+        # over a hundred seconds at import re-reading a catalog that had not
+        # actually changed. Update the caches from the statement text instead,
+        # and only fall back to a full invalidation for DDL we cannot model.
         if is_ddl:
-            self._bool_cols = None
-            self._table_names = None
-            self._id_columns.clear()
+            self._note_ddl(translated)
 
         # Set when a failed DDL statement has already been rolled back to its
         # savepoint, which leaves the transaction usable - see below.
@@ -1136,6 +1362,116 @@ class Connection:
         pass
 
     # -- internals ----------------------------------------------------------
+    def _columns(self):
+        """{table: {column}} for this schema (cached, refreshed by DDL).
+
+        One catalog query replaces the per-statement ``information_schema``
+        lookups that deciding whether a guarded ``ADD COLUMN`` is a no-op would
+        otherwise need. That matters because the app issues dozens of them at
+        import and each round trip through Neon's pooler costs about a second.
+        """
+        if self._all_cols is not None:
+            return self._all_cols
+        cur = self._pg.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT table_name, column_name
+                FROM information_schema.columns
+                WHERE table_schema = %s
+                """,
+                (self.schema,),
+            )
+            cols = {}
+            for table, column in cur.fetchall():
+                cols.setdefault(table.lower(), set()).add(column.lower())
+            self._all_cols = cols
+        except Exception:
+            self._pg.rollback()
+            self._all_cols = {}
+        finally:
+            cur.close()
+        return self._all_cols
+
+    def _indexes(self):
+        """Lower-cased index names in this schema (cached, refreshed by DDL)."""
+        if self._index_names is not None:
+            return self._index_names
+        cur = self._pg.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT indexname
+                FROM pg_indexes
+                WHERE schemaname = %s
+                """,
+                (self.schema,),
+            )
+            self._index_names = {r[0].lower() for r in cur.fetchall()}
+        except Exception:
+            self._pg.rollback()
+            self._index_names = set()
+        finally:
+            cur.close()
+        return self._index_names
+
+    def _is_noop_ddl(self, sql):
+        """True when a guarded DDL statement provably changes nothing.
+
+        ``CREATE TABLE IF NOT EXISTS`` for a table the catalog already lists,
+        ``ADD COLUMN IF NOT EXISTS`` for a column the table already has, and
+        ``CREATE INDEX IF NOT EXISTS`` for an index that exists are guaranteed
+        no-ops in PostgreSQL. Answering those from the cache instead of sending
+        them is semantically identical, and it is the difference between a
+        network round trip each and nothing at all.
+
+        Returns False whenever there is any doubt, so an unrecognised or
+        unguarded statement always reaches the server.
+        """
+        statement = sql.strip()
+        if not statement:
+            return False
+
+        match = _CREATE_INDEX_NAME_RE.match(statement)
+        if match:
+            if not _IF_NOT_EXISTS_RE.search(statement):
+                return False
+            name = (match.group('name') or match.group('bare') or '').lower()
+            return bool(name) and self._index_names is not None and name in self._index_names
+
+        match = _CREATE_TABLE_NAME_RE.match(statement) or _CREATE_TABLE_NAME_UNQUALIFIED_RE.match(statement)
+        if match:
+            if not _IF_NOT_EXISTS_RE.search(statement):
+                return False
+            name = (match.group('name') or match.group('bare') or '').lower()
+            return bool(name) and self._table_names is not None and name in self._table_names
+
+        match = _ADD_COLUMN_NAME_RE.match(statement)
+        if match:
+            if not _IF_NOT_EXISTS_RE.search(statement):
+                return False
+            column = (match.group('name') or match.group('bare') or '').lower()
+            table = _alter_target_table(statement)
+            if not column or not table:
+                return False
+            existing = self._columns().get(table)
+            return existing is not None and column in existing
+
+        return False
+
+    def _all_statements_noop(self, sql):
+        """True when every statement in ``sql`` is a provable no-op.
+
+        The translator turns ``ALTER TABLE ... ADD COLUMN c TEXT UNIQUE`` into two
+        statements (the ALTER plus a companion unique index). Skipping the pair
+        is only safe when *both* halves are already satisfied, so each statement
+        is checked on its own.
+        """
+        parts = [p for p in _split_statements(sql) if p.strip()]
+        if not parts:
+            return False
+        return all(self._is_noop_ddl(part) for part in parts)
+
     def _tables(self):
         """Lower-cased table names in this schema (cached, cleared by DDL)."""
         if self._table_names is not None:
@@ -1233,19 +1569,21 @@ class Connection:
         ``CREATE SCHEMA IF NOT EXISTS`` is idempotent and can create them all in
         one pass the first time anything connects. After that first call this is
         just an in-memory set lookup.
+
+        The statements are sent as one batched execute for the same reason: a
+        round trip through the pooler costs about a second, and five separate
+        CREATE SCHEMA statements cost five of them.
         """
-        global _server_version
         if schema in _created_schemas:
             return
 
         missing = sorted({schema, *SCHEMA_MAP.values()} - _created_schemas)
-        with psycopg.connect(dsn, **{**_connect_kwargs(), 'autocommit': True}) as pg:
+        statements = '; '.join(
+            f'CREATE SCHEMA IF NOT EXISTS "{name}"' for name in missing
+        )
+        with _get_psycopg().connect(dsn, **{**_connect_kwargs(), 'autocommit': True}) as pg:
             with pg.cursor() as cur:
-                for name in missing:
-                    cur.execute(f'CREATE SCHEMA IF NOT EXISTS "{name}"')
-                if _server_version is None:
-                    cur.execute('SHOW server_version')
-                    _server_version = cur.fetchone()[0]
+                cur.execute(statements)
         _created_schemas.update(missing)
 
 
@@ -1266,7 +1604,7 @@ def _acquire(dsn, schema):
     if conn is not None and not conn._pg.closed:
         try:
             # Never hand out a connection that is mid-aborted-transaction.
-            if conn._pg.info.transaction_status != _pg_status_idle:
+            if conn._pg.info.transaction_status != _get_pg_status_idle():
                 conn._pg.rollback()
         except Exception:
             conn = None
@@ -1303,7 +1641,7 @@ def _open_with_retry(dsn, schema):
             last = exc
             if attempt == attempts:
                 break
-            time.sleep(delay * attempt)
+            _time.sleep(delay * attempt)
 
     raise last
 
@@ -1312,7 +1650,7 @@ def _release(schema, conn):
     """Return a pooled connection, rolling back any dangling transaction."""
     if _pool.get(schema) is conn:
         try:
-            if conn._pg.info.transaction_status != _pg_status_idle:
+            if conn._pg.info.transaction_status != _get_pg_status_idle():
                 conn._pg.rollback()
         except Exception:
             _pool[schema] = None
@@ -1368,7 +1706,24 @@ def connect(db_file=None, *args, **kwargs):
 
 
 def server_version():
-    """Return the connected PostgreSQL server version string."""
+    """Return the connected PostgreSQL server version string.
+
+    Queried lazily on first call. Nothing in the app asks for it - the schema
+    setup used to fetch it eagerly, which cost an extra round trip through the
+    pooler on every fresh process to fill in a value no code read.
+    """
+    global _server_version
+    if _server_version is None:
+        url = _database_url()
+        if _force_sqlite() or not url:
+            return None
+        try:
+            with _get_psycopg().connect(url, **{**_connect_kwargs(), 'autocommit': True}) as pg:
+                with pg.cursor() as cur:
+                    cur.execute('SHOW server_version')
+                    _server_version = cur.fetchone()[0]
+        except Exception:
+            return None
     return _server_version
 
 

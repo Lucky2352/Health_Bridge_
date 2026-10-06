@@ -1,6 +1,5 @@
 import db
 import os
-from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,6 +33,16 @@ class DiagnosisDatabase:
         self.init_database()
     
     def init_database(self):
+        """Create the schema, once per process.
+
+        Every statement below is idempotent, but there are about thirty of them
+        and they were re-sent on every instantiation - from four module-level
+        constructors at import time, and again from request handlers. See
+        db.ensure_once for the cost that repetition added.
+        """
+        db.ensure_once(f'DiagnosisDatabase:{self.db_file}', self._create_schema)
+
+    def _create_schema(self):
         """Initialize diagnosis database with proper foreign key relationships"""
         conn = db.connect(self.db_file)
         conn.execute('PRAGMA foreign_keys = ON')
@@ -780,6 +789,52 @@ class DiagnosisDatabase:
             logger.error(f'Error counting appointments for doctor {doctor_id}: {e}')
             return 0
 
+    def get_all_appointments(self, statuses=None):
+        """Every appointment across all doctors, for the admin view.
+
+        The admin queue used to walk get_available_doctors() and call
+        get_doctor_appointments() once per doctor. This is that same result in one
+        query, grouped by doctor in full_name ASC order - the order the walk used -
+        with each doctor's rows in that doctor's own queue order.
+        """
+        try:
+            conn = db.connect(self.db_file)
+            conn.row_factory = db.Row
+
+            # _APPOINTMENT_SELECT already LEFT JOINs the doctor as d, which is the
+            # same row get_available_doctors() read the ordering name from, so the
+            # doctor's eligibility predicate is applied here rather than walking
+            # the doctor list first.
+            sql = f'''{self._APPOINTMENT_SELECT}
+                WHERE d.role = 'doctor' AND d.is_active = 1 AND d.doctor_id IS NOT NULL'''
+            params = []
+
+            if statuses:
+                statuses = [s for s in statuses if s in APPOINTMENT_STATUSES]
+                if statuses:
+                    sql += f" AND a.status IN ({', '.join('?' for _ in statuses)})"
+                    params.extend(statuses)
+
+            # The per-doctor queue order, prefixed by the doctor grouping.
+            sql += ''' ORDER BY d.full_name ASC,
+                             CASE a.status
+                                 WHEN 'pending' THEN 0
+                                 WHEN 'scheduled' THEN 1
+                                 WHEN 'cancelled' THEN 2
+                                 ELSE 3
+                             END,
+                             a.appointment_date DESC, a.id DESC'''
+
+            cursor = conn.execute(sql, tuple(params))
+            appointments = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+
+            return appointments
+
+        except Exception as e:
+            logger.error(f'Error fetching all appointments: {e}')
+            return []
+
     def get_available_doctors(self):
         """The doctors a patient is allowed to request an appointment with.
 
@@ -882,6 +937,44 @@ class DiagnosisDatabase:
         # In a real system, you'd check if patient is assigned to doctor
         return True
     
+    def get_all_patient_treatments(self):
+        """Every active patient's treatments, for the admin view.
+
+        The admin treatment list used to walk get_all_patients() and call
+        get_patient_treatments() once per patient - one query per patient, plus a
+        full scan of enhanced_users to find them. This is that same result in one
+        query.
+
+        Ordering matches what the loop produced: patients by created_at DESC, and
+        within a patient, treatments by created_at DESC then id DESC. Where two
+        patients share a created_at the tie was already resolved arbitrarily by the
+        database before, and still is.
+        """
+        try:
+            conn = db.connect(self.db_file)
+            conn.row_factory = db.Row
+
+            cursor = conn.execute('''
+                SELECT t.*,
+                       u.full_name as doctor_name,
+                       u.email as doctor_email,
+                       u.username as doctor_username
+                FROM treatments t
+                JOIN enhanced_users p ON t.patient_id = p.patient_id
+                LEFT JOIN enhanced_users u ON t.doctor_id = u.doctor_id
+                WHERE p.role = 'patient' AND p.is_active = 1
+                ORDER BY p.created_at DESC, t.created_at DESC, t.id DESC
+            ''')
+
+            treatments = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+
+            return treatments
+
+        except Exception as e:
+            logger.error(f"Error fetching all patient treatments: {e}")
+            return []
+
     def get_all_patients(self):
         """Get all patients for doctor dashboard"""
         try:

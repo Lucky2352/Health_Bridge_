@@ -32,6 +32,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
+from db import singleton
 from diagnosis_models import (
     DiagnosisDatabase,
     TREATMENT_STATUSES,
@@ -42,7 +43,15 @@ logger = logging.getLogger(__name__)
 
 treatment_bp = Blueprint('treatments', __name__, url_prefix='/treatments')
 
-diagnosis_db = DiagnosisDatabase()
+@singleton
+def get_diagnosis_db():
+    """The process-wide DiagnosisDatabase, built on first use.
+
+    This used to be constructed at import time, which ran the full schema setup
+    before the server could accept a connection. singleton also supplies the
+    lock, so two concurrent first requests do not both construct it.
+    """
+    return DiagnosisDatabase()
 
 
 def _current_doctor_id():
@@ -75,7 +84,7 @@ def _resolve_patient(identifier):
     if not identifier:
         return None
 
-    for patient in diagnosis_db.get_all_patients():
+    for patient in get_diagnosis_db().get_all_patients():
         if identifier in (patient.get('patient_id'), patient.get('email')):
             return patient
     return None
@@ -147,7 +156,7 @@ def treatment_list():
 
     return render_template(
         'treatments/list.html',
-        treatments=diagnosis_db.get_doctor_treatments(_current_doctor_id()),
+        treatments=get_diagnosis_db().get_doctor_treatments(_current_doctor_id()),
         is_admin_view=False,
     )
 
@@ -157,11 +166,10 @@ def treatment_list():
 def api_list():
     """The signed-in doctor's treatment plans as JSON, optionally per patient."""
     if current_user.is_admin():
-        items = []
-        for patient in diagnosis_db.get_all_patients():
-            items.extend(diagnosis_db.get_patient_treatments(patient['patient_id']))
+        # One query for the whole register rather than one per patient.
+        items = get_diagnosis_db().get_all_patient_treatments()
     else:
-        items = diagnosis_db.get_doctor_treatments(
+        items = get_diagnosis_db().get_doctor_treatments(
             _current_doctor_id(), request.args.get('patient_id')
         )
 
@@ -177,7 +185,7 @@ def api_list():
 @login_required
 def api_patients():
     """Patients a clinician can start a treatment for."""
-    return jsonify({'success': True, 'patients': diagnosis_db.get_all_patients()})
+    return jsonify({'success': True, 'patients': get_diagnosis_db().get_all_patients()})
 
 
 # --------------------------------------------------------------------------
@@ -196,7 +204,7 @@ def _render_form(treatment=None, form_data=None, selected_patient=''):
         'treatments/form.html',
         treatment=treatment,
         form_data=form_data,
-        patients=diagnosis_db.get_all_patients(),
+        patients=get_diagnosis_db().get_all_patients(),
         selected_patient=selected_patient or (treatment or {}).get('patient_id', ''),
         treatment_types=TREATMENT_TYPES,
         treatment_statuses=TREATMENT_STATUSES,
@@ -230,7 +238,7 @@ def create_treatment():
         flash('Select a valid patient before saving the treatment', 'error')
         return _render_form(form_data=data, selected_patient=submitted_patient)
 
-    diagnosis_db.add_treatment(
+    get_diagnosis_db().add_treatment(
         doctor_id=_current_doctor_id(),
         patient_id=patient['patient_id'],
         **data,
@@ -252,7 +260,7 @@ def create_treatment():
 @login_required
 def edit_treatment(treatment_id):
     """Revise an existing plan. Only its author (or an admin) gets here."""
-    treatment = diagnosis_db.get_treatment(treatment_id)
+    treatment = get_diagnosis_db().get_treatment(treatment_id)
     if not treatment:
         flash('Treatment not found', 'error')
         return redirect(url_for('treatments.treatment_list'))
@@ -269,7 +277,7 @@ def edit_treatment(treatment_id):
         flash('Treatment title is required', 'error')
         return _render_form(treatment=treatment, form_data=data)
 
-    diagnosis_db.update_treatment(treatment_id, data)
+    get_diagnosis_db().update_treatment(treatment_id, data)
     session['treatment_success'] = f"Treatment '{data['title']}' updated."
     return redirect(url_for('treatments.treatment_list'))
 
@@ -278,7 +286,7 @@ def edit_treatment(treatment_id):
 @login_required
 def delete_treatment(treatment_id):
     """Stop a treatment. Same authorship rule as editing."""
-    treatment = diagnosis_db.get_treatment(treatment_id)
+    treatment = get_diagnosis_db().get_treatment(treatment_id)
     if not treatment:
         flash('Treatment not found', 'error')
         return redirect(url_for('treatments.treatment_list'))
@@ -287,7 +295,7 @@ def delete_treatment(treatment_id):
         flash('Access denied: this treatment belongs to another doctor', 'error')
         return redirect(url_for('treatments.treatment_list'))
 
-    diagnosis_db.delete_treatment(treatment_id)
+    get_diagnosis_db().delete_treatment(treatment_id)
     session['treatment_success'] = (
         f"Treatment '{treatment.get('title')}' removed from "
         f"{treatment.get('patient_name') or treatment.get('patient_id')}'s plan."

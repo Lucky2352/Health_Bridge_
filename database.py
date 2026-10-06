@@ -1,5 +1,4 @@
 import db
-from datetime import datetime
 
 class Database:
     def __init__(self, db_file='diagnosis.db'):
@@ -7,6 +6,14 @@ class Database:
         self.init_db()
     
     def init_db(self):
+        """Create the schema, once per process.
+
+        Everything below is idempotent DDL that used to run on every
+        instantiation. See db.ensure_once for why that cost seconds per start.
+        """
+        db.ensure_once(f'Database:{self.db_file}', self._create_schema)
+
+    def _create_schema(self):
         conn = db.connect(self.db_file)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS diagnosis_records (

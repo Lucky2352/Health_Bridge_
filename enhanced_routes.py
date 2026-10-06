@@ -1,7 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
+from db import singleton
 from enhanced_auth import EnhancedAuthDB, UserRole
 from diagnosis_models import DiagnosisDatabase
+from patient_models import PatientDatabase
+from database import Database
 import os
 import re
 import logging
@@ -15,12 +18,25 @@ logger = logging.getLogger(__name__)
 # Create Blueprint
 enhanced_auth_bp = Blueprint('enhanced_auth', __name__, url_prefix='/enhanced')
 
-# Initialize database
-enhanced_db = EnhancedAuthDB()
+@singleton
+def get_enhanced_db():
+    """Process-wide EnhancedAuthDB, built on first use."""
+    return EnhancedAuthDB()
 
-# Shared across requests: constructing this runs CREATE TABLE IF NOT EXISTS for
-# every clinical table, which has no business happening on each dashboard load.
-clinical_db = DiagnosisDatabase()
+@singleton
+def get_clinical_db():
+    """Process-wide DiagnosisDatabase, built on first use."""
+    return DiagnosisDatabase()
+
+@singleton
+def get_patient_db():
+    """Process-wide PatientDatabase, built on first use."""
+    return PatientDatabase()
+
+@singleton
+def get_search_db():
+    """Process-wide Database (the search-operation log), built on first use."""
+    return Database()
 
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
@@ -50,7 +66,7 @@ def login():
             flash('Please enter both username/email and password', 'error')
             return render_template('enhanced_auth/login.html')
         
-        user = enhanced_db.authenticate_user(username, password)
+        user = get_enhanced_db().authenticate_user(username, password)
         
         if user:
             logger.info(f"Login successful for user: {user.username}")
@@ -93,14 +109,14 @@ def signup():
         if not email or not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
             errors.append('Please enter a valid email address')
         
-        if enhanced_db.email_exists(email):
+        if get_enhanced_db().email_exists(email):
             errors.append('Email address is already registered')
         
         if not username or len(username) < 3:
             errors.append('Username must be at least 3 characters')
         elif not re.match(r'^[a-zA-Z0-9_]+$', username):
             errors.append('Username can only contain letters, numbers, and underscores')
-        elif enhanced_db.user_exists(username):
+        elif get_enhanced_db().user_exists(username):
             errors.append('Username is already taken')
         
         if not password or len(password) < 8:
@@ -129,7 +145,7 @@ def signup():
         
         try:
             logger.info(f"Signup attempt: {username} ({email})")
-            user_id = enhanced_db.create_user(username, email, full_name, password, role)
+            user_id = get_enhanced_db().create_user(username, email, full_name, password, role)
             logger.info(f"Signup successful: {username} (ID: {user_id})")
             flash('Account created successfully. Please log in.', 'success')
             return redirect(url_for('enhanced_auth.login'))
@@ -237,7 +253,7 @@ def google_callback():
         return redirect(url_for('enhanced_auth.login'))
 
     # Try to authenticate / create user (no role yet for new users)
-    user, is_new = enhanced_db.authenticate_google_user(google_id, email, full_name)
+    user, is_new = get_enhanced_db().authenticate_google_user(google_id, email, full_name)
 
     if user is None and is_new:
         # New user — store Google info in session and ask for role
@@ -271,7 +287,7 @@ def google_role_select():
             return render_template('enhanced_auth/google_role_select.html',
                                    full_name=pending['full_name'], email=pending['email'])
 
-        user, _ = enhanced_db.authenticate_google_user(
+        user, _ = get_enhanced_db().authenticate_google_user(
             pending['google_id'], pending['email'], pending['full_name'], role=role
         )
         session.pop('pending_google', None)
@@ -318,40 +334,31 @@ def _on_date(value, target):
 def dashboard_stats():
     """Get dashboard statistics for the logged-in doctor"""
     try:
-        from patient_models import PatientDatabase
-        from database import Database
-        
         # Two different identifiers are in play here. patients.created_by stores the
         # clinician's username, while diagnoses/prescriptions/treatments key off the
         # immutable doctor_id. Keep them apart rather than reusing one name.
         created_by = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
         doctor_code = getattr(current_user, 'doctor_id', None)
         
-        # Initialize databases
-        patient_db = PatientDatabase()
-        diagnosis_db = Database()
-        
-        # Get patient count for this doctor
-        patients = patient_db.get_all_patients()
-        my_patients = [p for p in patients if p.get('created_by') == created_by]
-        
-        # Get diagnosis count for this doctor
-        diagnoses = patient_db.get_all_diagnoses()
-        my_diagnoses = [d for d in diagnoses if d.get('created_by') == created_by]
+        # Only two numbers are needed here, so they are counted by the database
+        # rather than by pulling every row in both tables across the wire and
+        # filtering in Python. Same predicate, same counts, no transfer.
+        my_patients = get_patient_db().count_patients(created_by)
+        my_diagnoses = get_patient_db().count_diagnoses(created_by)
         
         # Count code translations (search operations by this doctor)
-        search_count = diagnosis_db.get_user_search_count(created_by)
+        search_count = get_search_db().get_user_search_count(created_by)
         
         # Prescriptions and treatment plans belong to a doctor by doctor_id, not by
         # the username the patient register uses. A doctor without one (an admin, or
         # an unassigned account) has authored neither.
-        my_treatments = clinical_db.get_doctor_treatments(doctor_code) if doctor_code else []
+        my_treatments = get_clinical_db().get_doctor_treatments(doctor_code) if doctor_code else []
 
         # Appointment requests are addressed to a doctor by doctor_id, same as
         # treatments. Only 'scheduled' rows count as a day's diary: a request the
         # doctor has not answered yet is not booked, so it is counted separately as
         # something waiting for them.
-        my_appointments = clinical_db.get_doctor_appointments(doctor_code) if doctor_code else []
+        my_appointments = get_clinical_db().get_doctor_appointments(doctor_code) if doctor_code else []
         today = datetime.now().date()
         todays_appointments = sum(
             1 for a in my_appointments
@@ -359,12 +366,12 @@ def dashboard_stats():
         )
 
         stats = {
-            'my_patients': len(my_patients),
+            'my_patients': my_patients,
             'todays_appointments': todays_appointments,
             'pending_appointment_requests': sum(
                 1 for a in my_appointments if a.get('status') == 'pending'
             ),
-            'diagnoses': len(my_diagnoses),
+            'diagnoses': my_diagnoses,
             'prescriptions': 0,  # No route writes the prescriptions table yet
             'treatments': len(my_treatments),
             'active_treatments': sum(1 for t in my_treatments if t.get('status') == 'active'),
@@ -477,7 +484,7 @@ def check_username():
     if not re.match(r'^[a-zA-Z0-9_]+$', username):
         return jsonify({'available': False, 'message': 'Invalid characters'})
     
-    available = not enhanced_db.user_exists(username)
+    available = not get_enhanced_db().user_exists(username)
     return jsonify({'available': available})
 
 @enhanced_auth_bp.route('/check-email', methods=['POST'])
@@ -488,5 +495,5 @@ def check_email():
     if not email or not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
         return jsonify({'available': False, 'message': 'Invalid email format'})
     
-    available = not enhanced_db.email_exists(email)
+    available = not get_enhanced_db().email_exists(email)
     return jsonify({'available': available})

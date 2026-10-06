@@ -40,6 +40,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 
+from db import singleton
 from diagnosis_models import DiagnosisDatabase
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,15 @@ logger = logging.getLogger(__name__)
 # lives on the separate /patients blueprint in patient_routes.py.
 patient_portal_bp = Blueprint('patient_portal', __name__, url_prefix='/patient')
 
-diagnosis_db = DiagnosisDatabase()
+@singleton
+def get_diagnosis_db():
+    """The process-wide DiagnosisDatabase, built on first use.
+
+    Constructed at import time previously, which ran the full schema setup before
+    the server could accept a connection. singleton also supplies the lock, so
+    two concurrent first requests do not both construct it.
+    """
+    return DiagnosisDatabase()
 
 # Shown by the portal when the signed-in account has no patient record yet,
 # so a brand new signup sees an explanation rather than a bare empty list.
@@ -86,25 +95,25 @@ def session_patient_id():
 
 
 def my_diagnoses():
-    return diagnosis_db.get_patient_diagnoses(session_patient_id()) if session_patient_id() else []
+    return get_diagnosis_db().get_patient_diagnoses(session_patient_id()) if session_patient_id() else []
 
 
 def my_prescriptions():
-    return diagnosis_db.get_patient_prescriptions(session_patient_id()) if session_patient_id() else []
+    return get_diagnosis_db().get_patient_prescriptions(session_patient_id()) if session_patient_id() else []
 
 
 def my_appointments():
-    return diagnosis_db.get_patient_appointments(session_patient_id()) if session_patient_id() else []
+    return get_diagnosis_db().get_patient_appointments(session_patient_id()) if session_patient_id() else []
 
 
 def my_treatments():
     """Every treatment plan written for the signed-in patient, doctor details included."""
-    return diagnosis_db.get_patient_treatments(session_patient_id()) if session_patient_id() else []
+    return get_diagnosis_db().get_patient_treatments(session_patient_id()) if session_patient_id() else []
 
 
 def my_doctors():
     """The distinct doctors who have treated the signed-in patient."""
-    return diagnosis_db.get_patient_doctors(session_patient_id()) if session_patient_id() else []
+    return get_diagnosis_db().get_patient_doctors(session_patient_id()) if session_patient_id() else []
 
 
 THIRTY_DAYS = timedelta(days=30)
@@ -391,7 +400,7 @@ def api_appointment_doctors():
     """
     return jsonify({
         'success': True,
-        'doctors': diagnosis_db.get_available_doctors(),
+        'doctors': get_diagnosis_db().get_available_doctors(),
     })
 
 
@@ -423,7 +432,7 @@ def api_request_appointment():
         }), 400
 
     doctor = next(
-        (d for d in diagnosis_db.get_available_doctors() if d['doctor_id'] == doctor_id),
+        (d for d in get_diagnosis_db().get_available_doctors() if d['doctor_id'] == doctor_id),
         None,
     )
     if not doctor:
@@ -458,7 +467,7 @@ def api_request_appointment():
         }), 409
 
     try:
-        appointment_id = diagnosis_db.request_appointment(
+        appointment_id = get_diagnosis_db().request_appointment(
             patient_id=patient_id,
             doctor_id=doctor_id,
             requested_date=requested,
@@ -507,7 +516,7 @@ def api_cancel_appointment(appointment_id):
     if not patient_id:
         return jsonify({'success': False, 'error': NO_RECORD_MESSAGE}), 400
 
-    appointment = diagnosis_db.get_appointment(appointment_id)
+    appointment = get_diagnosis_db().get_appointment(appointment_id)
     if not appointment:
         return jsonify({'success': False, 'error': 'Appointment not found.'}), 404
 
@@ -525,7 +534,7 @@ def api_cancel_appointment(appointment_id):
             ),
         }), 409
 
-    diagnosis_db.cancel_appointment(appointment_id)
+    get_diagnosis_db().cancel_appointment(appointment_id)
 
     return jsonify({
         'success': True,

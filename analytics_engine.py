@@ -1,10 +1,6 @@
 import db
-from datetime import datetime, timedelta
-import json
-from collections import Counter
-import pandas as pd
 from io import BytesIO
-import base64
+import pandas as pd
 
 class AnalyticsEngine:
     def __init__(self):

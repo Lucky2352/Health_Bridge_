@@ -26,6 +26,7 @@ import csv
 import time
 import logging
 import threading
+import importlib.util
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -85,8 +86,7 @@ def model_candidates() -> list:
 def sdk_available() -> bool:
     """True when the google-genai SDK can be imported."""
     try:
-        import google.genai  # noqa: F401
-        return True
+        importlib.util.find_spec('google.genai') is not None
     except Exception:
         return False
 
@@ -310,14 +310,21 @@ def _namaste_ctx() -> str:
         return ''
 
 
-# Built once at import: it is static data and re-reading it per search is waste.
-_NAMASTE = _namaste_ctx()
-
 #: AYUSH terms whose ICD-11 equivalent the model is otherwise likely to miss.
 _AYUSH_HINTS = (
     'Jwara=Humma=Suram=fever, Kasa=Sual=Irumal=cough, Amavata=osteoarthritis, '
     'Prameha=Ziabetus=diabetes mellitus'
 )
+
+# NAMASTE context loaded lazily on first use to avoid import-time I/O
+_NAMASTE = None
+
+def _get_namaste_ctx():
+    """Get NAMASTE context, loading lazily on first use."""
+    global _NAMASTE
+    if _NAMASTE is None:
+        _NAMASTE = _namaste_ctx()
+    return _NAMASTE
 
 
 # --------------------------------------------------------------------------- #
@@ -346,7 +353,7 @@ def search_icd11(keyword: str, limit: int = MAX_RESULTS) -> list:
     prompt = (
         f"You are a WHO ICD-11 MMS (Mortality and Morbidity Statistics) expert.\n"
         f"Traditional mappings: {_AYUSH_HINTS}\n"
-        f"NAMASTE codes:\n{_NAMASTE}\n\n"
+        f"NAMASTE codes:\n{_get_namaste_ctx()}\n\n"
         f"List every ICD-11 MMS concept related to: \"{kw}\"\n"
         f"Order them by closeness to the query:\n"
         f"  1. the single best match for the term as written\n"
@@ -453,18 +460,28 @@ def suggest_diseases(prefix: str, limit: int = MAX_SUGGESTIONS) -> list:
 # --------------------------------------------------------------------------- #
 # Legacy compatibility -- WHO_ICD_API predates the Gemini rewrite
 # --------------------------------------------------------------------------- #
+#
+# Retired alongside the WHO MMS client it wrapped. Search is now served by
+# Gemini (see the module docstring), so the class stored no credentials, sent no
+# request and returned nothing the callers did not already get from
+# search_icd11() directly. Nothing in this project referenced it or the
+# module-level icd_api it produced - app.py called configure_icd_api() once at
+# import purely to build the object, then never read it - so both are gone rather
+# than left behind as a shim that looks wired up but does nothing.
 
 class WHO_ICD_API:
+    """Retired. Kept only as a name so an old import fails loudly.
+
+    This used to be a no-op wrapper around search_icd11(). Use search_icd11().
+    """
+
     def __init__(self, client_id=None, client_secret=None):
-        pass
+        raise NotImplementedError(
+            'WHO_ICD_API is retired; use search_icd11() or suggest_diseases(). '
+            'ICD-11 search is served by the Gemini API, not the WHO MMS client.'
+        )
 
     def search_icd11(self, keyword):
-        return search_icd11(keyword)
-
-
-icd_api = WHO_ICD_API()
-
-
-def configure_icd_api(client_id=None, client_secret=None):
-    global icd_api
-    icd_api = WHO_ICD_API()
+        raise NotImplementedError(
+            'WHO_ICD_API is retired; use search_icd11().'
+        )

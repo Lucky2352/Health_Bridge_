@@ -1,13 +1,14 @@
 import db
 import os
 import logging
-from datetime import datetime, timedelta
 from flask_login import UserMixin
 from enum import Enum
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# A library module, so it configures no logging - that belongs to whoever runs
+# the app (see the basicConfig call in app.py). Calling basicConfig here meant
+# importing this module silently set the root logger's level and format for the
+# whole process, which is how library code should behave.
 logger = logging.getLogger(__name__)
 
 class UserRole(Enum):
@@ -43,17 +44,22 @@ class EnhancedUser(UserMixin):
         return self.role == UserRole.PATIENT.value
 
 class EnhancedAuthDB:
-    def __init__(self, db_file='enhanced_auth.db'):
+    def __init__(self, db_file='enhanced_auth.db', auto_create=True):
         # Convert to absolute path to ensure single database file
         if not os.path.isabs(db_file):
             self.db_file = os.path.abspath(db_file)
         else:
             self.db_file = db_file
-        logger.info(f"Using database file: {self.db_file}")
+        logger.debug(f"Using database file: {self.db_file}")
         self.init_database()
-        self.create_default_users()
+        if auto_create:
+            self.create_default_users()
     
     def init_database(self):
+        """Create the schema, once per process. See db.ensure_once."""
+        db.ensure_once(f'EnhancedAuthDB:{self.db_file}', self._create_schema)
+
+    def _create_schema(self):
         conn = db.connect(self.db_file)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS enhanced_users (
@@ -89,15 +95,18 @@ class EnhancedAuthDB:
     
     def create_default_users(self):
         """Create default users for each role"""
-        defaults = [
-            ('admin', 'admin@emr.com', 'System Administrator', 'admin123', UserRole.ADMIN.value),
-            ('doctor', 'doctor@emr.com', 'Dr. John Smith', 'doctor123', UserRole.DOCTOR.value),
-            ('patient', 'patient@emr.com', 'Jane Doe', 'patient123', UserRole.PATIENT.value)
-        ]
-        
-        for username, email, full_name, password, role in defaults:
-            if not self.user_exists(username):
-                self.create_user(username, email, full_name, password, role)
+        try:
+            defaults = [
+                ('admin', 'admin@emr.com', 'System Administrator', 'admin123', UserRole.ADMIN.value),
+                ('doctor', 'doctor@emr.com', 'Dr. John Smith', 'doctor123', UserRole.DOCTOR.value),
+                ('patient', 'patient@emr.com', 'Jane Doe', 'patient123', UserRole.PATIENT.value)
+            ]
+            
+            for username, email, full_name, password, role in defaults:
+                if not self.user_exists(username):
+                    self.create_user(username, email, full_name, password, role)
+        except Exception:
+            pass  # Don't fail startup if default users can't be created
     
     def generate_patient_id(self):
         """Generate unique patient ID in format P0001, P0002, etc."""

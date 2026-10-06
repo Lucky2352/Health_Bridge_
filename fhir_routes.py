@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from enhanced_routes import is_clinician
+from db import singleton
 from fhir_interop import FHIRInteroperability
 import json
 
@@ -22,13 +23,21 @@ def require_clinician():
         flash('Clinician access required', 'error')
         return redirect(url_for('enhanced_auth.dashboard'))
 
-# Initialize FHIR system
-fhir_system = FHIRInteroperability()
+@singleton
+def get_fhir_system():
+    """The process-wide FHIRInteroperability, built on first use.
+
+    FHIRInteroperability's constructor builds a FHIRBundleStorage too and runs
+    both schemas' DDL, so doing this at import time was the single most expensive
+    line in the startup path. singleton also supplies the lock, so two concurrent
+    first requests do not both construct it.
+    """
+    return FHIRInteroperability()
 
 @fhir_bp.route('/')
 @login_required
 def fhir_dashboard():
-    bundles = fhir_system.get_all_bundles()
+    bundles = get_fhir_system().get_all_bundles()
     return render_template('fhir/dashboard.html', bundles=bundles)
 
 @fhir_bp.route('/upload')
@@ -84,7 +93,7 @@ def upload_bundle():
             }), 400
         
         # Validate FHIR bundle
-        validation_errors = fhir_system.validate_fhir_bundle(bundle_data)
+        validation_errors = get_fhir_system().validate_fhir_bundle(bundle_data)
         if validation_errors:
             return jsonify({
                 'status': 'error',
@@ -93,7 +102,7 @@ def upload_bundle():
         
         # Process bundle
         uploaded_by = getattr(current_user, 'username', None) or getattr(current_user, 'email', 'unknown')
-        bundle_id = fhir_system.process_fhir_bundle(bundle_data, uploaded_by)
+        bundle_id = get_fhir_system().process_fhir_bundle(bundle_data, uploaded_by)
         
         return jsonify({
             'status': 'success',
@@ -110,7 +119,7 @@ def upload_bundle():
 @fhir_bp.route('/bundle/<bundle_id>')
 @login_required
 def view_bundle(bundle_id):
-    summary = fhir_system.get_bundle_summary(bundle_id)
+    summary = get_fhir_system().get_bundle_summary(bundle_id)
     if not summary['bundle']:
         flash('Bundle not found', 'error')
         return redirect(url_for('fhir.fhir_dashboard'))
@@ -120,7 +129,7 @@ def view_bundle(bundle_id):
 @fhir_bp.route('/sample')
 @login_required
 def get_sample_bundle():
-    sample = fhir_system.get_sample_fhir_bundle()
+    sample = get_fhir_system().get_sample_fhir_bundle()
     return jsonify(sample)
 
 @fhir_bp.route('/map-condition', methods=['POST'])
@@ -134,7 +143,7 @@ def map_condition():
         if not resource_id:
             return jsonify({'error': 'Resource ID required'}), 400
         
-        fhir_system.map_condition_to_codes(
+        get_fhir_system().map_condition_to_codes(
             resource_id, 
             icd11_code if icd11_code else None,
             namaste_code if namaste_code else None
@@ -149,7 +158,7 @@ def map_condition():
 @login_required
 def get_upload_history():
     try:
-        bundles = fhir_system.get_all_bundles()
+        bundles = get_fhir_system().get_all_bundles()
         
         # Format bundles for frontend
         formatted_bundles = []
@@ -182,7 +191,7 @@ def validate_fhir():
         if not fhir_data:
             return jsonify({'valid': False, 'errors': ['No JSON data provided']})
         
-        errors = fhir_system.validate_fhir_bundle(fhir_data)
+        errors = get_fhir_system().validate_fhir_bundle(fhir_data)
         
         return jsonify({
             'valid': len(errors) == 0,

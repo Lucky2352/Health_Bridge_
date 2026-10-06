@@ -1,5 +1,4 @@
 import db
-import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class AuthService:
@@ -9,6 +8,10 @@ class AuthService:
         self.create_default_user()
     
     def init_users_table(self):
+        """Create the users table, once per process. See db.ensure_once."""
+        db.ensure_once(f'AuthService:{self.db_file}', self._create_users_table)
+
+    def _create_users_table(self):
         conn = db.connect(self.db_file)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS users (

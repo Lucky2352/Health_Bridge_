@@ -1,9 +1,7 @@
 import json
 import db
 from datetime import datetime
-from flask import jsonify
 import uuid
-import re
 from fhir_bundle import FHIRBundleStorage, FHIRBundleValidator
 
 class FHIRInteroperability:
@@ -13,6 +11,10 @@ class FHIRInteroperability:
         self.init_database()
     
     def init_database(self):
+        """Create the schema, once per process. See db.ensure_once."""
+        db.ensure_once(f'FHIRInteroperability:{self.db_file}', self._create_schema)
+
+    def _create_schema(self):
         conn = db.connect(self.db_file)
         
         # FHIR Bundles table
@@ -43,6 +45,7 @@ class FHIRInteroperability:
                 resource_type TEXT,
                 resource_id TEXT,
                 patient_reference TEXT,
+                patient_abha_id TEXT,
                 code_system TEXT,
                 code_value TEXT,
                 display_name TEXT,
@@ -52,6 +55,12 @@ class FHIRInteroperability:
                 FOREIGN KEY (bundle_id) REFERENCES fhir_bundles (bundle_id)
             )
         ''')
+
+        # Add ABHA ID column if it doesn't exist (for existing databases)
+        try:
+            conn.execute('ALTER TABLE fhir_resources ADD COLUMN patient_abha_id TEXT')
+        except db.OperationalError:
+            pass  # Column already exists
         
         conn.commit()
         conn.close()
@@ -96,11 +105,10 @@ class FHIRInteroperability:
         patient_ref = self._extract_patient_reference(resource)
         abha_id = self._extract_abha_id(resource)
         
-        # Add ABHA ID column if it doesn't exist
-        try:
-            conn.execute('ALTER TABLE fhir_resources ADD COLUMN patient_abha_id TEXT')
-        except db.OperationalError:
-            pass  # Column already exists
+        # The patient_abha_id column is created once by init_database(). This
+        # ALTER used to run here, inside the per-resource loop, so uploading a
+        # bundle of 200 resources sent 200 identical ALTER statements and waited
+        # on 200 identical "column already exists" failures.
         
         # Extract condition codes for mapping
         if resource_type == 'Condition':

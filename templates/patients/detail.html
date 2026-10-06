@@ -522,6 +522,17 @@
                                             <td><span class="abha-id">{{ patient.abha_id[:2] }}-{{ patient.abha_id[2:6] }}-{{ patient.abha_id[6:10] }}-{{ patient.abha_id[10:14] }}</span></td>
                                         </tr>
                                         {% endif %}
+                                        {% if patient.disease_name or patient.icd11_code %}
+                                        <tr>
+                                            <td>Disease:</td>
+                                            <td>
+                                                {{ patient.disease_name or '-' }}
+                                                {% if patient.icd11_code %}
+                                                <span class="patient-id" style="margin-left: 0.4rem;">{{ patient.icd11_code }}</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endif %}
                                         <tr>
                                             <td>Created:</td>
                                             <td>{{ patient.created_at[:10] }}</td>

@@ -82,6 +82,10 @@ class FHIRBundleStorage:
         self._init_db()
     
     def _init_db(self):
+        """Create the schema, once per process. See db.ensure_once."""
+        db.ensure_once(f'FHIRBundleStorage:{self.db_file}', self._create_schema)
+
+    def _create_schema(self):
         """Initialize bundle storage database"""
         conn = db.connect(self.db_file)
         conn.execute('''
@@ -144,10 +148,11 @@ class FHIRBundleStorage:
             upload_date = 'N/A'
             if row['uploaded_at']:
                 try:
-                    from datetime import datetime
                     dt = datetime.fromisoformat(row['uploaded_at'].replace('Z', '+00:00'))
                     upload_date = dt.strftime('%Y-%m-%d %H:%M')
-                except:
+                except (AttributeError, TypeError, ValueError):
+                    # A timestamp in a shape fromisoformat cannot read. Show it
+                    # truncated rather than losing the row.
                     upload_date = str(row['uploaded_at'])[:16]
             
             bundles.append({
