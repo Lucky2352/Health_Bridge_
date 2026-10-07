@@ -1,11 +1,29 @@
+import os
 import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify
 
 class JWTAuth:
-    SECRET_KEY = 'your-jwt-secret-key-change-in-production'
-    
+    """HS256 token helpers for the API routes.
+
+    The signing secret is read from the JWT_SECRET_KEY environment variable
+    every time a token is signed or verified. It is deliberately never
+    hardcoded: the previous placeholder string was committed to source, so it
+    was public to anyone with repo access.
+    """
+
+    @staticmethod
+    def _secret_key():
+        key = (os.getenv('JWT_SECRET_KEY') or '').strip()
+        if not key:
+            raise RuntimeError(
+                'JWT_SECRET_KEY environment variable is not set. Generate a '
+                'strong random value (python -c "import secrets; '
+                'print(secrets.token_hex(32))") and add it to .env.'
+            )
+        return key
+
     @staticmethod
     def generate_token(username, expires_hours=24):
         """Generate JWT token"""
@@ -16,15 +34,18 @@ class JWTAuth:
             'iat': datetime.utcnow(),
             'jti': str(uuid.uuid4())
         }
-        
-        return jwt.encode(payload, JWTAuth.SECRET_KEY, algorithm='HS256')
-    
+
+        return jwt.encode(payload, JWTAuth._secret_key(), algorithm='HS256')
+
     @staticmethod
     def verify_token(token):
         """Verify JWT token"""
+        # Resolved outside the try: a missing JWT_SECRET_KEY is a configuration
+        # error, and swallowing it would report "invalid token" instead.
+        secret = JWTAuth._secret_key()
         try:
             import jwt
-            payload = jwt.decode(token, JWTAuth.SECRET_KEY, algorithms=['HS256'])
+            payload = jwt.decode(token, secret, algorithms=['HS256'])
             return payload
         except Exception:
             return None

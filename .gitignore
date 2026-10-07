@@ -1,5 +1,7 @@
 # Secrets - never commit
 .env
+.env.*
+!.env.example
 
 # Legacy SQLite databases (superseded by Neon PostgreSQL; kept as a backup)
 *.db

@@ -41,13 +41,18 @@ def get_search_db():
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/auth"
-GOOGLE_REDIRECT_URI = "http://localhost:8000/enhanced/google-callback"
+GOOGLE_REDIRECT_URI_DEFAULT = "http://localhost:8000/enhanced/google-callback"
 
 def _google_client_id():
     return os.getenv("GOOGLE_CLIENT_ID", "")
 
 def _google_client_secret():
     return os.getenv("GOOGLE_CLIENT_SECRET", "")
+
+def _google_redirect_uri():
+    """OAuth callback URL. GOOGLE_REDIRECT_URI env var overrides the
+    localhost default so production only needs to set one variable."""
+    return os.getenv("GOOGLE_REDIRECT_URI", GOOGLE_REDIRECT_URI_DEFAULT)
 
 @enhanced_auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -170,7 +175,7 @@ def google_login():
     state = secrets.token_urlsafe(16)
     session['oauth_state'] = state
 
-    redirect_uri = GOOGLE_REDIRECT_URI
+    redirect_uri = _google_redirect_uri()
     auth_url = (
         f"{GOOGLE_AUTH_URL}"
         f"?client_id={client_id}"
@@ -216,7 +221,7 @@ def google_callback():
             'client_secret': _google_client_secret(),
             'code': code,
             'grant_type': 'authorization_code',
-            'redirect_uri': GOOGLE_REDIRECT_URI,
+            'redirect_uri': _google_redirect_uri(),
         }, timeout=10)
         token_resp.raise_for_status()
         token_data = token_resp.json()

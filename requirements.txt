@@ -1,4 +1,21 @@
-Django>=5.0,<6.0
-djangorestframework>=3.15,<4.0
-psycopg2-binary>=2.9,<3.0
+# HealthBridge runtime dependencies (Flask application).
+# Verified against the versions currently working in this project:
+#   Flask 2.3.3, Flask-Login 0.6.3, psycopg 3.3.6, python-dotenv 1.2.3,
+#   gunicorn 26.0.0, PyJWT 2.8.0, pandas 2.3.2, requests 2.34.2,
+#   reportlab 4.4.3, bcrypt 4.3.0, google-genai 2.22.0, werkzeug 2.3.3
+#
+# The previous file listed Django, djangorestframework and psycopg2-binary:
+# none are imported anywhere (this is a Flask app using psycopg 3, not psycopg 2).
+
+Flask>=2.3,<4.0
+Flask-Login>=0.6,<1.0
+Werkzeug>=2.3,<4.0
+psycopg[binary]>=3.1,<4.0
 python-dotenv>=1.0,<2.0
+gunicorn>=21,<27.0
+PyJWT>=2.8,<3.0
+pandas>=2.0,<3.0
+requests>=2.31,<3.0
+reportlab>=4.0,<5.0
+bcrypt>=4.0,<5.0
+google-genai>=1.0,<3.0
