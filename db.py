@@ -46,16 +46,20 @@ names keep working via ``search_path`` and no table-name collisions occur::
 
 Falling back to SQLite
 ----------------------
-If ``DATABASE_URL`` is not set (or Neon is unreachable) and ``HB_DB_BACKEND=sqlite``
-is set, :func:`connect` transparently returns a real ``sqlite3`` connection instead,
-so the app keeps working offline. That is how the one-time data migration reads the
-legacy files.
+When ``DATABASE_URL`` is not set (or Neon is unreachable), :func:`connect` would
+otherwise transparently return a ``sqlite3`` connection so the app keeps working
+offline. That fallback is preserved for local development (``FLASK_ENV=development``,
+running ``app.py`` directly, or an explicit ``HB_DB_BACKEND=sqlite``), but in the
+production deployment path (gunicorn/WSGI, e.g. Render) a missing ``DATABASE_URL``
+now fails fast with a clear error instead - see
+:func:`ensure_production_database_configured`.
 """
 
 import functools
 import os
 import re
 import sqlite3 as _sqlite3
+import sys
 import threading
 # Aliased because ``from datetime import ... time`` below binds the *datetime.time*
 # class to the name ``time`` in this namespace, which shadowed the module and left
@@ -110,6 +114,56 @@ def _database_url():
 def _force_sqlite():
     """True when explicitly asked to run on the legacy SQLite files."""
     return os.getenv('HB_DB_BACKEND', '').strip().lower() == 'sqlite'
+
+
+def _is_local_development():
+    """Mirror of the app's production/development split used by
+    ``SESSION_COOKIE_SECURE`` and ``_secret_key()``: ``FLASK_ENV=development``
+    or running the app script directly (``python app.py``, where
+    ``__main__.__file__`` is ``app.py``) is local development. Everything else
+    (gunicorn/WSGI on Render, the flask CLI, helper tools) is the production
+    deployment path.
+    """
+    if (os.getenv('FLASK_ENV', '') or '').strip().lower() == 'development':
+        return True
+    main = sys.modules.get('__main__')
+    main_file = str(getattr(main, '__file__', '') or '')
+    return os.path.basename(main_file).lower() == 'app.py'
+
+
+def ensure_production_database_configured():
+    """Fail fast instead of silently falling back to SQLite in production.
+
+    In the deployment path (gunicorn/WSGI, e.g. Render) a missing or empty
+    ``DATABASE_URL`` would otherwise have :func:`connect` silently open the
+    legacy SQLite files, making a healthy-looking app serve the wrong
+    database. Guarded contexts raise a clear ``RuntimeError`` before any
+    connection is made.
+
+    Intentionally preserved:
+
+    * ``HB_DB_BACKEND=sqlite`` -> explicit SQLite (development/testing) is
+      always allowed, in any context.
+    * ``FLASK_ENV=development`` or ``python app.py`` -> local development
+      keeps the existing SQLite fallback behaviour.
+
+    Called at app import time (so gunicorn refuses to boot) and again in
+    :func:`connect` (so no entry path can silently reach SQLite).
+    """
+    if _force_sqlite():
+        return
+    if _database_url():
+        return
+    if _is_local_development():
+        return
+    raise RuntimeError(
+        'DATABASE_URL is not set (or is empty) in the production deployment '
+        'path, so the SQLite fallback is refused: the app would otherwise '
+        'appear healthy while serving the wrong database. Set DATABASE_URL '
+        '(e.g. in the Render dashboard) and ensure FLASK_ENV is not '
+        '"development". For local development, set FLASK_ENV=development or '
+        'HB_DB_BACKEND=sqlite.'
+    )
 
 
 def _int_env(name, default):
@@ -1698,6 +1752,7 @@ def connect(db_file=None, *args, **kwargs):
     ``conn.close()`` exactly as it always did; that simply returns the
     connection to the pool instead of tearing down a socket.
     """
+    ensure_production_database_configured()
     url = _database_url()
     if _force_sqlite() or not url:
         return _sqlite3.connect(db_file or ':memory:')

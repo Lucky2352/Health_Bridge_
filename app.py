@@ -13,7 +13,7 @@ from fhir_routes import fhir_bp
 from reports_routes import reports_bp
 # Imported by name, not as the module: this file already binds ``db`` to a
 # Database instance below, and shadowing the module with it would be a trap.
-from db import singleton
+from db import singleton, ensure_production_database_configured
 from utils.namaste_service import get_namaste_service
 from database import Database
 from diagnosis_models import DiagnosisDatabase
@@ -44,10 +44,61 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.static_folder = 'static'
 app.template_folder = 'templates'
-app.secret_key = os.getenv('SECRET_KEY', 'hb-super-secret-key-healthbridge-2024-xK9mP2qR')
+
+
+def _secret_key():
+    """Flask session signing key, from the SECRET_KEY environment variable.
+
+    The previously committed fallback string was public to anyone with repo
+    access, so it is gone: production must supply SECRET_KEY via .env. The only
+    fallback is the development-only branch below, reachable solely when
+    FLASK_ENV=development, and it is reported as insecure by design.
+    """
+    key = (os.getenv('SECRET_KEY') or '').strip()
+    if key:
+        return key
+    if (os.getenv('FLASK_ENV', '') or '').strip().lower() == 'development':
+        logger.warning(
+            'SECRET_KEY is not set - using an INSECURE development-only key '
+            'because FLASK_ENV=development. Never run this way in production.'
+        )
+        return 'development-only-insecure-key-set-SECRET_KEY-for-production'
+    raise RuntimeError(
+        'SECRET_KEY environment variable is not set. Generate a strong random '
+        'value (python -c "import secrets; print(secrets.token_hex(32))") and '
+        'add it to .env. For local development, set FLASK_ENV=development.'
+    )
+
+
+app.secret_key = _secret_key()
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = False
+# Secure cookies are the default so production (HTTPS) never sends the session
+# cookie over plain HTTP. Two development-only escapes keep local work usable:
+# FLASK_ENV=development, or running the built-in dev server directly
+# (``python app.py``) - which is unreachable under gunicorn, where __name__ is
+# 'app', so production always gets Secure=True.
+app.config['SESSION_COOKIE_SECURE'] = not (
+    (os.getenv('FLASK_ENV', '') or '').strip().lower() == 'development'
+    or __name__ == '__main__'
+)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+
+
+# Production safety gate. Same production/development split as
+# SESSION_COOKIE_SECURE above: FLASK_ENV=development or running the script
+# directly keeps the SQLite fallback, but in the deployment path a missing
+# DATABASE_URL must fail gunicorn's boot now, not silently use SQLite.
+ensure_production_database_configured()
+
+
+@app.route('/health')
+def health():
+    """Unauthenticated liveness probe for platform health checks.
+
+    Deliberately static: no database access, no secrets, no work - it only
+    proves the WSGI process is up and serving routes.
+    """
+    return jsonify(status='ok'), 200
 
 # Initialize Flask-Login
 login_manager = LoginManager()
